@@ -59,7 +59,10 @@ Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a mac
 | Ferramenta | Função |
 |---|---|
 | `Docker` + `Docker Compose` | Orquestra localmente API, frontend, PostgreSQL e Redis. |
-| `GitHub Actions` | Pipeline de CI: build, testes, lint (`clippy`) e formatação (`rustfmt`) a cada push/PR. |
+| `GitHub Actions` | Pipeline de CI/CD: build, testes, lint (`clippy`) e formatação (`rustfmt`) a cada push/PR. |
+| `cargo-tarpaulin` | Geração de relatório de cobertura de código em formato LCOV. |
+| `Codecov` | Visualização e histórico de cobertura de testes. Integrado ao CI via GitHub Actions. |
+| `SonarCloud` | Análise estática de qualidade de código: code smells, duplicações, vulnerabilidades. |
 | `Fly.io` | Deploy em produção. CD automático via GitHub Actions no merge para `main`. |
 
 ---
@@ -157,6 +160,20 @@ cargo test -- --nocapture
 ```
 
 Os testes cobrem os fluxos críticos: checkout completo, concorrência de estoque (requisições simultâneas para o último item), e validação de cupons.
+
+---
+
+## Qualidade de Código
+
+O projeto utiliza **Codecov** para rastreamento de cobertura de testes e **SonarCloud** para análise estática de qualidade. Ambos rodam automaticamente no pipeline de CI a cada push.
+
+```bash
+# Gerar relatório de cobertura localmente
+cargo install cargo-tarpaulin
+cargo tarpaulin --out Lcov --output-dir coverage/
+```
+
+O relatório gerado em `coverage/lcov.info` é o mesmo enviado ao Codecov e ao SonarCloud no CI.
 
 ---
 

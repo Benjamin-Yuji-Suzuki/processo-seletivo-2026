@@ -1,106 +1,216 @@
-# Processo Seletivo LAPES 2026
+# 🛒 E-commerce Simplificado — Desafio LAPES 2026
 
-O LAPES — Laboratório de Pesquisa em Engenharia de Software — está com as seleções abertas para 2026. O processo é composto por um desafio técnico e uma entrevista com o responsável pela área de interesse.
+**Candidato:** Benjamin Yuji Suzuki
+**Trilha:** Desenvolvimento — Mini E-commerce
+**Formato:** Individual
 
-Há duas trilhas disponíveis. Você pode seguir pela que mais se alinha ao seu perfil ou encarar ambas, inclusive mesclando os desafios em um único projeto, se fizer sentido.
+**Contato:**
+- E-mail: benjamin24070067@aluno.cesupa.br
+- WhatsApp: (91) 99208-7892
 
 ---
 
-## Como entregar
+## Por que Rust?
 
-1. Faça um fork deste repositório.
-2. O repositório deve permanecer público do início ao fim do processo seletivo.
-3. No README do seu fork, inclua:
-   - nome(s) do(s) candidato(s) e trilha(s) escolhida(s);
-   - contato: e-mail institucional e/ou telefone com WhatsApp;
-   - instruções de setup e decisões técnicas, conforme o PDF de cada desafio.
+Porque sim.
 
-O PDF de cada trilha está na pasta correspondente:
+Mas já que você perguntou: Rust oferece segurança de memória sem garbage collector, tipagem forte que elimina classes inteiras de bugs em tempo de compilação, e performance próxima de C. Para um sistema de e-commerce onde consistência de dados e controle de concorrência são requisitos explícitos, o compilador do Rust atua como um primeiro revisor de código — se compilou, grande parte dos erros de lógica concorrente já foram eliminados. A máquina de estados do pedido (`PENDING → PAID → SHIPPED → DELIVERED`) é modelada como um enum Rust, tornando transições inválidas literalmente impossíveis de compilar. O controle de overselling no checkout usa transações atômicas no PostgreSQL combinadas com as garantias do type system do Rust. Não é sobre performance — é sobre corretude.
+
+---
+
+## Stack Tecnológico
+
+### Backend
+
+| Crate | Função |
+|---|---|
+| `axum` | Framework web async, construído sobre Tokio. Roteamento, middleware, WebSocket. |
+| `tokio` | Runtime assíncrono. Base de toda a stack de I/O. |
+| `sqlx` | Queries SQL async para PostgreSQL com verificação em tempo de compilação. Migrations embutidas. |
+| `redis` + `deadpool-redis` | Cache de produtos com invalidação. Pool de conexões async. |
+| `jsonwebtoken` | Emissão e validação de JWT para autenticação. |
+| `argon2` | Hash de senhas. Algoritmo moderno e seguro. |
+| `tower_governor` | Rate limiting nos endpoints públicos (login, registro, catálogo). |
+| `tracing` + `tracing-subscriber` | Logs estruturados em JSON com timestamp, método, rota, status e duração. |
+| `utoipa` + `utoipa-swagger-ui` | Geração automática de documentação OpenAPI/Swagger via macros `#[derive]`. |
+| `serde` + `serde_json` | Serialização e deserialização de JSON. |
+| `validator` | Validação de inputs nas bordas da API. |
+| `reqwest` | Cliente HTTP para integração com gateway de pagamento. |
+| `uuid` | Geração de UUIDs para identificadores de entidades. |
+| `chrono` | Manipulação de datas e timestamps (validade de cupons, etc). |
+
+**Banco de dados:** PostgreSQL
+**Cache:** Redis
+**Migrations:** `sqlx migrate` (versionadas em `/migrations/*.sql`)
+
+### Frontend
+
+| Ferramenta | Função |
+|---|---|
+| `Leptos` | Framework web full-stack em Rust compilado para WebAssembly. SSR + hidratação no cliente. |
+| `cargo-leptos` | CLI de desenvolvimento do Leptos. Hot reload, build otimizado. |
+| `Trunk` | Bundler WASM para Rust. Empacota o frontend para produção. |
+| `TailwindCSS` | Estilização via classes utilitárias, declaradas dentro das macros Rust. |
+
+Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a macro `view!` do Leptos, que compila para WebAssembly. Não há JavaScript ou TypeScript no projeto.
+
+### Infraestrutura
+
+| Ferramenta | Função |
+|---|---|
+| `Docker` + `Docker Compose` | Orquestra localmente API, frontend, PostgreSQL e Redis. |
+| `GitHub Actions` | Pipeline de CI: build, testes, lint (`clippy`) e formatação (`rustfmt`) a cada push/PR. |
+| `Fly.io` | Deploy em produção. CD automático via GitHub Actions no merge para `main`. |
+
+---
+
+## Arquitetura
 
 ```
-processo-seletivo-2026/
-├── dados/    ← Trilha de Dados / IA
-└── dev/      ← Trilha de Desenvolvimento
+┌─────────────────────────────────────────────────────┐
+│                     Cliente                          │
+│              Leptos (Rust → WASM)                   │
+└──────────────────────┬──────────────────────────────┘
+                       │ HTTP / REST
+┌──────────────────────▼──────────────────────────────┐
+│                  Axum (Backend)                      │
+│  Auth │ Catálogo │ Carrinho │ Checkout │ Cupons      │
+└────────┬──────────────────────────────┬─────────────┘
+         │                              │
+┌────────▼────────┐          ┌──────────▼──────────┐
+│   PostgreSQL    │          │        Redis         │
+│  (dados + stock)│          │  (cache + sessions)  │
+└─────────────────┘          └──────────────────────┘
 ```
 
-**Em dupla:** apenas um dos candidatos faz o fork; o segundo contribui no mesmo repositório. Ambos os nomes devem constar no README final.
+---
+
+## Domínios Implementados
+
+- **Autenticação & Usuários** — Registro, login, JWT, roles `admin` e `customer`, proteção de rotas por papel.
+- **Catálogo de Produtos** — CRUD completo, busca com filtros (categoria, preço, nome), paginação, cache Redis com invalidação.
+- **Carrinho de Compras** — Carrinho persistido por usuário, validação de estoque ao adicionar e no checkout.
+- **Checkout & Pedidos** — Reserva atômica de estoque (sem overselling), máquina de estados, cancelamento com devolução de estoque, integração com gateway de pagamento.
+- **Cupons de Desconto** — Percentual ou valor fixo, validade por data, uso único por usuário, valor mínimo de pedido.
 
 ---
 
-## Trilha de Dados — Sistema Agêntico de IA
+## Como Rodar
 
-Construa um sistema multiagente capaz de responder perguntas sobre um corpus de documentos a sua escolha, combinando recuperação vetorial (RAG) com busca na web como fallback.
+### Pré-requisitos
 
-**Prazo:** 17 de julho de 2026, até 23:59 (BRT).
-**Formato:** individual ou dupla.
-**Desafio completo:** [`dados/desafio.pdf`](dados/desafio.pdf)
+- [Rust](https://rustup.rs/) (stable)
+- [Docker](https://www.docker.com/) e Docker Compose
+- [cargo-leptos](https://github.com/leptos-rs/cargo-leptos): `cargo install cargo-leptos`
+- [Trunk](https://trunkrs.dev/): `cargo install trunk`
 
-Dúvidas: Giovanni Braga — [e-mail institucional](mailto:giovanni23070008@aluno.cesupa.br)
+### Setup local
 
----
+```bash
+# 1. Clone o repositório
+git clone https://github.com/benjaminYuji/lapes-ecommerce
+cd lapes-ecommerce
 
-## Trilha de Desenvolvimento — Mini E-commerce
+# 2. Suba PostgreSQL e Redis
+docker compose up -d db redis
 
-Desenvolver uma plataforma de e-commerce simplificada. Um desafio fullstack(frontend, backend e devops), abordando conceitos como cache, rate limiting, testes automatizadoes e entre outros.
+# 3. Configure as variáveis de ambiente
+cp .env.example .env
+# edite o .env com suas configurações
 
-**Prazo:** 17 de julho de 2026, até 23:59 (BRT).
-**Formato:** individual ou dupla.
-**Desafio completo:** [`dev/desafio.pdf`](dev/desafio.pdf)
+# 4. Rode as migrations e popule o banco
+cargo run --bin migrate
+cargo run --bin seed
 
-Dúvidas: Gabriel Mattos — [e-mail institucional](mailto:gabriel22070059@aluno.cesupa.br)
+# 5. Suba o backend
+cargo run --bin api
 
----
+# 6. Suba o frontend (em outro terminal)
+cargo leptos watch
+```
 
-## Apresentações
+A API estará disponível em `http://localhost:3000`
+O frontend estará disponível em `http://localhost:3001`
+A documentação Swagger em `http://localhost:3000/docs`
 
-As apresentações serão realizadas nas primeiras semanas de agosto. Data e horário serão definidos com cada candidato pelo responsável da respectiva trilha. Detalhes sobre formato e duração serão divulgados em breve.
+### Rodar tudo com Docker (recomendado)
 
----
+```bash
+docker compose up --build
+```
 
-## Avaliação
-
-Em ambas as trilhas, a nota final é composta por **50% do desafio técnico** e **50% da entrevista** com o responsável pela área. Todos os candidatos que entregarem o desafio são convidados para a entrevista automaticamente. Mais detalhes sobre o formato da entrevista serão divulgados em breve.
-
-Candidatos não selecionados após a entrevista recebem feedback ao final do processo.
-
----
-
-## Sobre o uso de IA
-
-O uso de ferramentas de IA generativa é permitido — faz parte do dia a dia do desenvolvimento moderno. O desafio avalia o seu conhecimento, não o da máquina. Você deve ser capaz de explicar seu código, justificar cada decisão técnica e defender sua arquitetura na apresentação. Copiar sem compreender será evidente na review.
-
----
-
-## FAQ
-
-**Existe algum pré-requisito (curso, período, vínculo institucional)?**
-Não.
-
-**Posso me inscrever nas duas trilhas?**
-Sim. Você pode entregar as duas trilhas separadamente ou mesclá-las em um único projeto, se houver fluidez entre os escopos.
-
-**Deploy público é obrigatório?**
-Não. Basta o repositório rodando localmente conforme o README. Deploy automatizado é diferencial (pontuação extra), conforme detalhado no PDF do desafio.
-
-**Atraso resulta em penalização ou desclassificação?**
-Penalização. O prazo encerra em 17/07/2026 às 23:59. Commits feitos depois do prazo são aceitos, mas implicam desconto na nota do desafio.
-
-**Como faço para tirar dúvidas durante o desafio ou reportar inconsistências?**
-Por contato direto com os responsáveis abaixo. Dúvidas específicas de uma trilha vão para o responsável da área; dúvidas gerais sobre o processo podem ser endereçadas a qualquer um.
-
-- Caio Johnston — [e-mail institucional](mailto:caio21070002@aluno.cesupa.br)
-- Gabriel Mattos — [e-mail institucional](mailto:gabriel22070059@aluno.cesupa.br)
-- Giovanni Braga — [e-mail institucional](mailto:giovanni23070008@aluno.cesupa.br)
-- Isaac Elgrably
-
-Gabriel e Giovanni são da turma CC7NA e podem ser procurados pessoalmente no CESUPA, nos horários da turma (tarde e noite).
-
-Contato organizacional: contato.lapes@gmail.com
+Isso sobe API + frontend + PostgreSQL + Redis de uma vez. Migrations e seed rodam automaticamente.
 
 ---
 
-A todos, desejamos um bom projeto, e boa sorte.
+## Testes
 
-Atenciosamente,
+```bash
+# Todos os testes
+cargo test
 
-Caio Johnston, Gabriel Mattos, Giovanni Braga, e Isaac Elgrably.
+# Testes de integração (requer banco rodando)
+cargo test --test integration
+
+# Com output detalhado
+cargo test -- --nocapture
+```
+
+Os testes cobrem os fluxos críticos: checkout completo, concorrência de estoque (requisições simultâneas para o último item), e validação de cupons.
+
+---
+
+## Variáveis de Ambiente
+
+```env
+DATABASE_URL=postgres://postgres:password@localhost:5432/ecommerce
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=sua_chave_secreta_aqui
+JWT_EXPIRES_IN=24h
+PAYMENT_GATEWAY_URL=https://...
+PAYMENT_GATEWAY_KEY=...
+RUST_LOG=info
+```
+
+---
+
+## Decisões Técnicas
+
+**Por que Axum e não Actix-web?** Axum é construído sobre Tower, o que torna middleware composável e reutilizável. A integração com Leptos (SSR) também é nativa no ecossistema Axum + Tokio.
+
+**Por que SQLx e não Diesel ou SeaORM?** SQLx valida as queries SQL em tempo de compilação sem precisar de um ORM completo. Isso mantém o SQL legível e explícito, o que facilita otimizações e é mais fácil de auditar.
+
+**Por que Leptos e não Yew ou Dioxus?** Leptos oferece o menor overhead de runtime, fine-grained reactivity sem Virtual DOM, e integração nativa com Axum para SSR. É o framework Rust frontend com melhor performance em benchmarks independentes (2025/2026).
+
+**Controle de concorrência:** O overselling é prevenido com `SELECT ... FOR UPDATE` dentro de uma transação PostgreSQL. Duas requisições simultâneas para o último item resultam em uma transação esperando a outra terminar — a segunda recebe erro de estoque insuficiente.
+
+**Cache:** Produtos são cacheados no Redis com TTL de 5 minutos. Qualquer operação de criação, edição ou remoção invalida a chave correspondente imediatamente.
+
+---
+
+## Estrutura do Repositório
+
+```
+.
+├── api/                  # Backend Axum
+│   ├── src/
+│   │   ├── auth/
+│   │   ├── catalog/
+│   │   ├── cart/
+│   │   ├── checkout/
+│   │   └── coupons/
+│   └── Cargo.toml
+├── frontend/             # Frontend Leptos
+│   ├── src/
+│   └── Cargo.toml
+├── migrations/           # SQLx migrations
+├── seeds/                # Scripts de seed
+├── .github/workflows/    # CI/CD GitHub Actions
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+---
+
+*Desafio LAPES 2026 — Benjamin Yuji Suzuki*

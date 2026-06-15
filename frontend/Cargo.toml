@@ -1,0 +1,17 @@
+[package]
+name = "lapes-ecommerce-frontend"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos = { version = "0.7", features = ["csr"] }
+leptos_meta = { version = "0.7" }
+leptos_router = { version = "0.7" }
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen = "0.2"
+gloo-net = "0.6"
+web-sys = { version = "0.3", features = ["Storage", "Window"] }

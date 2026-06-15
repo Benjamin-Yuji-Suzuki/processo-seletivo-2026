@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check & Lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ben
+          POSTGRES_PASSWORD: 1234
+          POSTGRES_DB: lapes_ecommerce
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready -U ben -d lapes_ecommerce
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Build
+        run: cargo build --release -p lapes-ecommerce-api
+
+      - name: Run migrations
+        run: cargo run --bin migrate
+        env:
+          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
+
+      - name: Run seed
+        run: cargo run --bin seed
+        env:
+          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
+
+      - name: Integration tests
+        run: cargo test -p lapes-ecommerce-api
+        env:
+          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret

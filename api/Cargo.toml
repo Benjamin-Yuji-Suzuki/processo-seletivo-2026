@@ -1,0 +1,76 @@
+[package]
+name = "lapes-ecommerce-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Async runtime
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tokio.workspace = true
+
+# Database
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "bigdecimal", "migrate", "macros"] }
+deadpool-redis = { version = "0.21", features = ["serde"] }
+redis = { version = "0.28", features = ["tokio-comp", "connection-manager"] }
+
+# Auth
+jsonwebtoken = "9"
+argon2 = "0.5"
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Validation
+validator = { version = "0.19", features = ["derive"] }
+
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# IDs & time
+uuid.workspace = true
+chrono.workspace = true
+
+# BigDecimal with serde support (needed by sqlx::types::BigDecimal)
+bigdecimal = { version = "0.4", features = ["serde"] }
+
+# Observability
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Rate limiting
+tower_governor = "0.1"
+
+# OpenAPI / Swagger
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono", "decimal"] }
+utoipa-swagger-ui = { version = "8", features = ["axum"] }
+
+# Config
+dotenvy = "0.15"
+
+# Async trait
+async-trait = "0.1"
+
+# Error handling
+thiserror.workspace = true
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
+
+[[bin]]
+name = "migrate"
+path = "src/bin/migrate.rs"
+
+[[bin]]
+name = "seed"
+path = "src/bin/seed.rs"
+
+[lib]
+name = "lapes_ecommerce_api"
+path = "src/lib.rs"
+
+[package.metadata.leptos]
+bin-target = "api"

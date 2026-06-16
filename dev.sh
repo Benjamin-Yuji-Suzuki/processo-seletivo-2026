@@ -2,7 +2,7 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-API_PORT=3000
+API_PORT=8099
 WEB_PORT=8081
 
 # Cores

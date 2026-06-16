@@ -30,7 +30,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8099:8099"
     environment:
       DATABASE_URL: postgres://ben:***@postgres:5432/lapes_ecommerce
       REDIS_URL: redis://redis:6379

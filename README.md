@@ -132,9 +132,9 @@ cargo run --bin api
 cargo leptos watch
 ```
 
-A API estará disponível em `http://localhost:3000`
+A API estará disponível em `http://localhost:8099`
 O frontend estará disponível em `http://localhost:3001`
-A documentação Swagger em `http://localhost:3000/docs`
+A documentação Swagger em `http://localhost:8099/docs`
 
 ### Rodar tudo com Docker (recomendado)
 

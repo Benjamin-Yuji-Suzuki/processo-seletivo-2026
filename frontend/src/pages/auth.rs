@@ -18,6 +18,7 @@ pub fn LoginPage() -> impl IntoView {
         message.set(String::new());
         loading.set(true);
         let toast = crate::toast::use_toast();
+        let nav = use_navigate();
 
         // Client-side validation
         let email_val = email.get();
@@ -77,7 +78,6 @@ pub fn LoginPage() -> impl IntoView {
                         toast.success(if reg { "Conta criada com sucesso!" } else { "Login realizado com sucesso!" });
                         is_error.set(false);
                         loading.set(false);
-                        let nav = use_navigate();
                         nav("/", Default::default());
                     } else {
                         is_error.set(true);

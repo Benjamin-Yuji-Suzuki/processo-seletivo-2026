@@ -69,7 +69,11 @@ pub fn ProductCard(product: Value) -> impl IntoView {
         .as_str()
         .unwrap_or("Sem nome")
         .to_string();
-    let price = product["price"].as_f64().unwrap_or(0.0);
+    let price = product["price"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .or_else(|| product["price"].as_f64())
+        .unwrap_or(0.0);
     let desc = product["description"]
         .as_str()
         .unwrap_or("")

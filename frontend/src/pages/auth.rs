@@ -13,13 +13,14 @@ pub fn LoginPage() -> impl IntoView {
     let is_error = RwSignal::new(false);
     let loading = RwSignal::new(false);
     let nav = use_navigate();
+    let toast = crate::toast::use_toast();
 
     let submit = move |_| {
         let nav = nav.clone();
+        let toast = toast.clone();
         let reg = is_register.get();
         message.set(String::new());
         loading.set(true);
-        let toast = crate::toast::use_toast();
 
         // Client-side validation
         let email_val = email.get();

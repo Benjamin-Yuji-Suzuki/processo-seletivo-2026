@@ -12,6 +12,11 @@ pub mod toast;
 
 #[component]
 pub fn App() -> impl IntoView {
+    // Set up panic hook to see errors in browser console
+    std::panic::set_hook(Box::new(|info| {
+        web_sys::console::error_1(&format!("PANIC: {}", info).into());
+    }));
+
     provide_meta_context();
     toast::provide_toast();
 

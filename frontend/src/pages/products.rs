@@ -22,12 +22,16 @@ pub fn ProductList() -> impl IntoView {
     let search_products = move || {
         products.get().map(|result| match &*result {
             Err(e) => {
-                view! { <p style="color: red;">"Erro: " {e.clone()}</p> }.into_any()
+                view! {
+                    <div class="alert alert-error">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span>Erro: {e.clone()}</span>
+                    </div>
+                }.into_any()
             }
             Ok(data) => {
-                let items = data["data"]
+                let items = data["products"]
                     .as_array()
-                    .or_else(|| data.as_array())
                     .cloned()
                     .unwrap_or_default();
                 let q = search.get().to_lowercase();
@@ -52,16 +56,20 @@ pub fn ProductList() -> impl IntoView {
                 };
 
                 if filtered.is_empty() {
-                    view! { <p>"Nenhum produto encontrado."</p> }.into_any()
+                    view! {
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                                </svg>
+                            </div>
+                            <h3>Nenhum produto encontrado</h3>
+                            <p>Tente ajustar sua busca ou limpar os filtros.</p>
+                        </div>
+                    }.into_any()
                 } else {
                     view! {
-                        <div
-                            style="
-                                display: grid;
-                                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                                gap: 1rem;
-                            "
-                        >
+                        <div class="product-grid">
                             {filtered
                                 .into_iter()
                                 .map(|p| {
@@ -72,70 +80,113 @@ pub fn ProductList() -> impl IntoView {
                                 .collect::<Vec<_>>()
                             }
                         </div>
-                    }
-                        .into_any()
+                    }.into_any()
                 }
             }
         })
     };
 
     view! {
-        <div style="max-width: 1200px; margin: 0 auto;">
-            <h1>"Produtos"</h1>
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                <input
-                    type="text"
-                    placeholder="Buscar produtos..."
-                    style="flex: 1; min-width: 200px; padding: 0.5rem;"
-                    on:input=move |ev| {
-                        search.set(event_target_value(&ev));
-                    }
-                    prop:value=search
-                />
-                <select
-                    style="padding: 0.5rem;"
-                    on:change=move |ev| {
-                        category.set(event_target_value(&ev));
-                        products.refetch();
-                    }
-                >
-                    <option value="">"Todas as categorias"</option>
-                    <option value="eletrônicos">"Eletrônicos"</option>
-                    <option value="roupas">"Roupas"</option>
-                    <option value="alimentos">"Alimentos"</option>
-                    <option value="livros">"Livros"</option>
-                    <option value="outros">"Outros"</option>
-                </select>
+        <div class="container" style="margin-top: 1.5rem;">
+            <div class="page-header">
+                <h1>Produtos</h1>
+                <span style="color: var(--gray-500); font-size: 0.9rem;">
+                    {move || {
+                        products.get().map(|result| match &*result {
+                            Ok(data) => {
+                                let count = data["products"]
+                                    .as_array()
+                                    .map(|a| a.len())
+                                    .or_else(|| data.as_array().map(|a| a.len()))
+                                    .unwrap_or(0);
+                                format!("{} produto(s)", count)
+                            }
+                            _ => String::new(),
+                        }).unwrap_or_default()
+                    }}
+                </span>
             </div>
 
-            <Transition fallback=move || view! { <crate::components::Loading/> }>
+            <div class="filter-bar">
+                <div style="display: flex; gap: 8px; align-items: stretch; flex: 1;">
+                    <div style="position: relative; flex: 1;">
+                        <input
+                            type="text"
+                            placeholder="Buscar produtos..."
+                            class="form-input"
+                            style="padding-right: 2.5rem;"
+                            on:input=move |ev| {
+                                search.set(event_target_value(&ev));
+                            }
+                            prop:value=search
+                        />
+                        <button
+                            style="
+                                position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+                                background: none; border: none; cursor: pointer;
+                                color: var(--gray-500); padding: 4px; line-height: 0;
+                                display: flex; align-items: center;
+                            "
+                            on:click=move |_| search.set(String::new())
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <select
+                        class="form-select"
+                        style="max-width: 200px;"
+                        on:change=move |ev| {
+                            category.set(event_target_value(&ev));
+                            page.set(1);
+                            products.refetch();
+                        }
+                    >
+                        <option value="">Todas as categorias</option>
+                        <option value="eletrônicos">Eletrônicos</option>
+                        <option value="roupas">Roupas</option>
+                        <option value="alimentos">Alimentos</option>
+                        <option value="livros">Livros</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+            </div>
+
+            <Transition fallback=move || view! { <crate::components::ProductSkeletonGrid/> }>
                 {search_products}
             </Transition>
 
-            <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
+            <div class="pagination">
                 <button
-                    style="padding: 0.5rem 1rem;"
+                    class="btn btn-ghost btn-sm"
+                    disabled=move || page.get() <= 1
                     on:click=move |_| {
-                        let p = page.get();
-                        if p > 1 {
-                            page.set(p - 1);
+                        if page.get() > 1 {
+                            page.set(page.get() - 1);
                             products.refetch();
                         }
                     }
                 >
-                    "Anterior"
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m15 18-6-6 6-6"/>
+                    </svg>
+                    Anterior
                 </button>
-                <span style="padding: 0.5rem;">
+                <span class="pagination-info">
                     {move || format!("Página {}", page.get())}
                 </span>
                 <button
-                    style="padding: 0.5rem 1rem;"
+                    class="btn btn-ghost btn-sm"
                     on:click=move |_| {
                         page.set(page.get() + 1);
                         products.refetch();
                     }
                 >
-                    "Próxima"
+                    Próxima
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
                 </button>
             </div>
         </div>

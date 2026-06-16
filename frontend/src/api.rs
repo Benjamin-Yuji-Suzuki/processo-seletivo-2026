@@ -1,7 +1,7 @@
 use gloo_net::http::{Request, RequestBuilder};
 use serde_json::Value;
 
-const API_BASE: &str = "http://localhost:3000";
+const API_BASE: &str = "/api";
 
 fn storage() -> web_sys::Storage {
     web_sys::window()

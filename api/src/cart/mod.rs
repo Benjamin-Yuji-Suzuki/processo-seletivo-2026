@@ -34,6 +34,14 @@ pub fn routes() -> Router<AppState> {
 /// List every item in the authenticated user's cart, enriched with product
 /// information (name, image, unit price) and a computed per-item subtotal.
 /// The response includes a `total` field that sums all subtotals.
+#[utoipa::path(
+    get,
+    path = "/api/cart",
+    responses(
+        (status = 200, description = "Carrinho do usuário", body = CartResponse),
+    ),
+    tag = "cart"
+)]
 async fn list_cart(
     auth: AuthUser,
     State(state): State<AppState>,
@@ -86,6 +94,17 @@ async fn list_cart(
 /// Validates that:
 ///   - The product exists.
 ///   - The total requested quantity does not exceed available stock.
+#[utoipa::path(
+    post,
+    path = "/api/cart",
+    request_body = AddToCartRequest,
+    responses(
+        (status = 200, description = "Item adicionado/atualizado no carrinho", body = CartItemResponse),
+        (status = 400, description = "Estoque insuficiente"),
+        (status = 404, description = "Produto não encontrado"),
+    ),
+    tag = "cart"
+)]
 async fn add_to_cart(
     auth: AuthUser,
     State(state): State<AppState>,
@@ -103,8 +122,9 @@ async fn add_to_cart(
         .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
 
     // 2. Read the quantity already in the cart (0 if not present).
+    //    CAST(... AS INTEGER) ensures we get i32, not BIGINT from SUM().
     let current_qty: i32 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(quantity), 0) FROM cart_items \
+        "SELECT COALESCE(CAST(SUM(quantity) AS INTEGER), 0) FROM cart_items \
          WHERE user_id = $1 AND product_id = $2",
     )
     .bind(auth.0.id)
@@ -169,6 +189,19 @@ async fn add_to_cart(
 ///
 /// - If `quantity == 0` the item is **removed** from the cart.
 /// - Otherwise the product's stock is validated before applying the change.
+#[utoipa::path(
+    put,
+    path = "/api/cart/{product_id}",
+    request_body = UpdateCartRequest,
+    params(
+        ("product_id" = Uuid, Path, description = "ID do produto"),
+    ),
+    responses(
+        (status = 200, description = "Item atualizado ou removido"),
+        (status = 404, description = "Item não encontrado"),
+    ),
+    tag = "cart"
+)]
 async fn update_cart_item(
     auth: AuthUser,
     State(state): State<AppState>,
@@ -253,6 +286,18 @@ async fn update_cart_item(
 /// `DELETE /cart/{product_id}`
 ///
 /// Remove a single product from the cart.
+#[utoipa::path(
+    delete,
+    path = "/api/cart/{product_id}",
+    params(
+        ("product_id" = Uuid, Path, description = "ID do produto"),
+    ),
+    responses(
+        (status = 200, description = "Item removido"),
+        (status = 404, description = "Item não encontrado"),
+    ),
+    tag = "cart"
+)]
 async fn remove_cart_item(
     auth: AuthUser,
     State(state): State<AppState>,
@@ -276,6 +321,14 @@ async fn remove_cart_item(
 /// `DELETE /cart`
 ///
 /// Remove **all** items from the authenticated user's cart.
+#[utoipa::path(
+    delete,
+    path = "/api/cart",
+    responses(
+        (status = 200, description = "Carrinho limpo"),
+    ),
+    tag = "cart"
+)]
 async fn clear_cart(
     auth: AuthUser,
     State(state): State<AppState>,

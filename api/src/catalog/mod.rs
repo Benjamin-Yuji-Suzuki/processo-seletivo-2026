@@ -36,6 +36,15 @@ pub fn routes() -> Router<AppState> {
 // ── Handlers ───────────────────────────────────────────────────────────
 
 /// `GET /products` — list / search / filter / paginate products.
+#[utoipa::path(
+    get,
+    path = "/api/products",
+    params(ProductQuery),
+    responses(
+        (status = 200, description = "Lista paginada de produtos", body = PaginatedProducts),
+    ),
+    tag = "catalog"
+)]
 async fn list_products(
     State(state): State<AppState>,
     Query(params): Query<ProductQuery>,
@@ -99,6 +108,18 @@ async fn list_products(
 }
 
 /// `GET /products/{id}` — fetch a single product by ID (Redis-cached).
+#[utoipa::path(
+    get,
+    path = "/api/products/{id}",
+    params(
+        ("id" = Uuid, Path, description = "ID do produto"),
+    ),
+    responses(
+        (status = 200, description = "Produto encontrado", body = Product),
+        (status = 404, description = "Produto não encontrado"),
+    ),
+    tag = "catalog"
+)]
 async fn get_product(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -106,8 +127,7 @@ async fn get_product(
     let cache_key = format!("{CACHE_KEY_PREFIX}{id}");
 
     // ── Check Redis cache ───────────────────────────────────────────
-    {
-        let mut conn = state.redis.clone();
+    if let Some(mut conn) = state.redis.clone() {
         let cached: Option<String> = conn.get(&cache_key).await?;
         if let Some(json_str) = cached {
             let product: Product = serde_json::from_str(&json_str)
@@ -131,8 +151,7 @@ async fn get_product(
     .ok_or_else(|| AppError::NotFound(format!("Product {id} not found")))?;
 
     // ── Store in Redis with 5-minute TTL ────────────────────────────
-    {
-        let mut conn = state.redis.clone();
+    if let Some(mut conn) = state.redis.clone() {
         let json_str = serde_json::to_string(&product)
             .map_err(|e| AppError::Internal(format!("Cache serialize error: {e}")))?;
         let _: () = conn.set_ex(&cache_key, &json_str, CACHE_TTL_SECS).await?;
@@ -142,6 +161,16 @@ async fn get_product(
 }
 
 /// `POST /products` — create a new product (admin only).
+#[utoipa::path(
+    post,
+    path = "/api/products",
+    request_body = CreateProductRequest,
+    responses(
+        (status = 201, description = "Produto criado", body = Product),
+        (status = 403, description = "Apenas administradores"),
+    ),
+    tag = "catalog"
+)]
 async fn create_product(
     State(state): State<AppState>,
     user: AuthUser,
@@ -236,11 +265,11 @@ async fn update_product(
     .await?
     .ok_or_else(|| AppError::NotFound(format!("Product {id} not found")))?;
 
-    // ── Invalidate cache ────────────────────────────────────────────
+    // ── Invalidate Redis cache ───────────────────────────────────────
     let cache_key = format!("{CACHE_KEY_PREFIX}{id}");
-    let mut conn = state.redis.clone();
-    let _: () = conn.del(&cache_key).await?;
-
+    if let Some(mut conn) = state.redis.clone() {
+        let _: () = conn.del(&cache_key).await?;
+    }
     Ok(Json(product))
 }
 
@@ -266,10 +295,10 @@ async fn delete_product(
         return Err(AppError::NotFound(format!("Product {id} not found")));
     }
 
-    // ── Invalidate cache ────────────────────────────────────────────
+    // ── Invalidate Redis cache ───────────────────────────────────────
     let cache_key = format!("{CACHE_KEY_PREFIX}{id}");
-    let mut conn = state.redis.clone();
-    let _: () = conn.del(&cache_key).await?;
-
+    if let Some(mut conn) = state.redis.clone() {
+        let _: () = conn.del(&cache_key).await?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }

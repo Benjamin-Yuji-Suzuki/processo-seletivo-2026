@@ -16,7 +16,7 @@ pub struct User {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, validator::Validate)]
+#[derive(Debug, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct RegisterRequest {
     #[validate(length(min = 2, max = 255))]
     pub name: String,
@@ -26,19 +26,19 @@ pub struct RegisterRequest {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AuthResponse {
     pub token: String,
     pub user: UserResponse,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct UserResponse {
     pub id: Uuid,
     pub name: String,
@@ -70,11 +70,12 @@ pub struct Claims {
 
 // ── Product ───────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct Product {
     pub id: Uuid,
     pub name: String,
     pub description: String,
+    #[schema(value_type = String)]
     pub price: sqlx::types::BigDecimal,
     pub category: String,
     pub image_url: String,
@@ -111,7 +112,7 @@ pub struct UpdateProductRequest {
     pub stock: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ProductQuery {
     pub search: Option<String>,
     pub category: Option<String>,
@@ -121,7 +122,7 @@ pub struct ProductQuery {
     pub per_page: Option<i64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PaginatedProducts {
     pub products: Vec<Product>,
     pub total: i64,
@@ -142,7 +143,7 @@ pub struct CartItem {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CartItemResponse {
     pub id: Uuid,
     pub product_id: Uuid,
@@ -153,20 +154,20 @@ pub struct CartItemResponse {
     pub subtotal: f64,
 }
 
-#[derive(Debug, Deserialize, validator::Validate)]
+#[derive(Debug, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct AddToCartRequest {
     pub product_id: Uuid,
     #[validate(range(min = 1, max = 99))]
     pub quantity: i32,
 }
 
-#[derive(Debug, Deserialize, validator::Validate)]
+#[derive(Debug, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct UpdateCartRequest {
     #[validate(range(min = 0, max = 99))]
     pub quantity: i32, // 0 = remove item
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CartResponse {
     pub items: Vec<CartItemResponse>,
     pub total: f64,
@@ -198,7 +199,7 @@ pub struct OrderItem {
     pub subtotal: sqlx::types::BigDecimal,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct OrderResponse {
     pub id: Uuid,
     pub status: String,
@@ -209,7 +210,7 @@ pub struct OrderResponse {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct OrderItemResponse {
     pub product_id: Uuid,
     pub product_name: String,
@@ -218,7 +219,7 @@ pub struct OrderItemResponse {
     pub subtotal: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CheckoutRequest {
     pub coupon_code: Option<String>,
 }
@@ -239,7 +240,7 @@ pub struct Coupon {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CouponResponse {
     pub id: Uuid,
     pub code: String,
@@ -252,7 +253,6 @@ pub struct CouponResponse {
 
 impl From<Coupon> for CouponResponse {
     fn from(c: Coupon) -> Self {
-        use std::str::FromStr;
         Self {
             id: c.id,
             code: c.code,
@@ -265,7 +265,7 @@ impl From<Coupon> for CouponResponse {
     }
 }
 
-#[derive(Debug, Deserialize, validator::Validate)]
+#[derive(Debug, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct CreateCouponRequest {
     #[validate(length(min = 3, max = 50))]
     pub code: String,
@@ -287,7 +287,7 @@ use std::str::FromStr;
 pub fn to_bigdecimal_cents(bd: &BigDecimal) -> i64 {
     let s = bd.to_string();
     // BigDecimal "123.45" → cents "12345"
-    let (int_part, frac_part) = if let Some(dot) = s.find('.') {
+    let (int_part, _frac_part) = if let Some(dot) = s.find('.') {
         let frac = &s[dot + 1..];
         let padded = format!("{}{:0<2}", &s[..dot], &frac[..frac.len().min(2)]);
         (padded, true)

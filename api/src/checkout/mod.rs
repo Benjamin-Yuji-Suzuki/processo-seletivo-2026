@@ -11,8 +11,7 @@ use uuid::Uuid;
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    CartItemResponse, CheckoutRequest, Order, OrderItem, OrderItemResponse, OrderResponse,
-    Product,
+    CheckoutRequest, Order, OrderItem, OrderItemResponse, OrderResponse, Product,
 };
 use crate::state::AppState;
 
@@ -35,6 +34,16 @@ fn from_cents(cents: i64) -> f64 {
 
 // ── Checkout ───────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/checkout",
+    request_body = CheckoutRequest,
+    responses(
+        (status = 200, description = "Pedido criado com sucesso", body = OrderResponse),
+        (status = 400, description = "Carrinho vazio ou cupom inválido"),
+    ),
+    tag = "checkout"
+)]
 async fn checkout(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -149,9 +158,9 @@ async fn checkout(
     let mut tx = state.db.begin().await?;
 
     // 4. Lock products and validate stock
-    let product_ids: Vec<Uuid> = cart_items.iter().map(|(_, pid, _, _, _, _, _)| *pid).collect();
+    let _product_ids: Vec<Uuid> = cart_items.iter().map(|(_, pid, _, _, _, _, _)| *pid).collect();
     // We lock each product individually via SELECT FOR UPDATE
-    for (ci_id, pid, pname, pimg, price_bd, qty, subtotal_f) in &cart_items {
+    for (_ci_id, pid, _pname, _pimg, _price_bd, qty, _subtotal_f) in &cart_items {
         let product: Product = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1 FOR UPDATE",
         )
@@ -195,7 +204,7 @@ async fn checkout(
     .await?;
 
     // 7. Create order items
-    for (ci_id, pid, pname, pimg, price_bd, qty, subtotal_f) in &cart_items {
+    for (_ci_id, pid, pname, _pimg, _price_bd, qty, subtotal_f) in &cart_items {
         let unit_price_cents = to_cents(*subtotal_f / *qty as f64);
         let item_subtotal_cents = unit_price_cents * *qty as i64;
 
@@ -246,18 +255,19 @@ async fn checkout(
     tx.commit().await?;
 
     // 11. Invalidate Redis cache for affected products
-    for (_, pid, _, _, _, _, _) in &cart_items {
-        let _: Result<(), _> = state
-            .redis
-            .clone()
-            .del(format!("product:{}", pid))
-            .await;
+    if let Some(ref conn) = state.redis {
+        for (_, pid, _, _, _, _, _) in &cart_items {
+            let _: Result<(), _> = conn
+                .clone()
+                .del(format!("product:{pid}"))
+                .await;
+        }
     }
 
     // 12. Build response
     let order_items: Vec<OrderItemResponse> = cart_items
         .iter()
-        .map(|(_, pid, pname, _, price_bd, qty, subtotal_f)| OrderItemResponse {
+        .map(|(_, pid, pname, _, _price_bd, qty, subtotal_f)| OrderItemResponse {
             product_id: *pid,
             product_name: pname.clone(),
             quantity: *qty,
@@ -279,6 +289,14 @@ async fn checkout(
 
 // ── List orders ─────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/orders",
+    responses(
+        (status = 200, description = "Lista de pedidos do usuário", body = Vec<OrderResponse>),
+    ),
+    tag = "checkout"
+)]
 async fn list_orders(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -324,6 +342,18 @@ async fn list_orders(
 
 // ── Get single order ────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/orders/{id}",
+    params(
+        ("id" = Uuid, Path, description = "ID do pedido"),
+    ),
+    responses(
+        (status = 200, description = "Detalhes do pedido", body = OrderResponse),
+        (status = 404, description = "Pedido não encontrado"),
+    ),
+    tag = "checkout"
+)]
 async fn get_order(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -367,6 +397,19 @@ async fn get_order(
 
 // ── Cancel order ────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    put,
+    path = "/api/orders/{id}/cancel",
+    params(
+        ("id" = Uuid, Path, description = "ID do pedido"),
+    ),
+    responses(
+        (status = 200, description = "Pedido cancelado"),
+        (status = 400, description = "Pedido não pode ser cancelado"),
+        (status = 404, description = "Pedido não encontrado"),
+    ),
+    tag = "checkout"
+)]
 async fn cancel_order(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -404,12 +447,13 @@ async fn cancel_order(
             .execute(&mut *tx)
             .await?;
 
-        // Invalidate cache
-        let _: Result<(), _> = state
-            .redis
-            .clone()
-            .del(format!("product:{}", item.product_id))
-            .await;
+        // Invalidate Redis cache for affected products
+        if let Some(ref conn) = state.redis {
+            let _: Result<(), _> = conn
+                .clone()
+                .del(format!("product:{}", item.product_id))
+                .await;
+        }
     }
 
     sqlx::query("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1")
@@ -424,6 +468,21 @@ async fn cancel_order(
 
 // ── Update order status (admin only) ────────────────────────────────────
 
+#[utoipa::path(
+    put,
+    path = "/api/orders/{id}/status",
+    params(
+        ("id" = Uuid, Path, description = "ID do pedido"),
+    ),
+    request_body(content = serde_json::Value, description = "{\"status\": \"shipped\"}"),
+    responses(
+        (status = 200, description = "Status atualizado"),
+        (status = 400, description = "Transição inválida"),
+        (status = 403, description = "Apenas administradores"),
+        (status = 404, description = "Pedido não encontrado"),
+    ),
+    tag = "checkout"
+)]
 async fn update_order_status(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,

@@ -41,7 +41,8 @@ impl axum::response::IntoResponse for AppError {
             AppError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             AppError::Database(e) => {
                 tracing::error!(error = %e, "Database error");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".into())
+                eprintln!("DB_ERROR: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {e}"))
             }
             AppError::Redis(e) => {
                 tracing::error!(error = %e, "Redis error");

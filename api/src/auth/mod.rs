@@ -131,6 +131,16 @@ impl FromRequestParts<AppState> for AuthUser {
 /// Validates the registration payload, checks for duplicate emails, hashes the
 /// password with Argon2, inserts the user, and returns a signed JWT along with
 /// the user's public profile.
+#[utoipa::path(
+    post,
+    path = "/api/auth/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "Usuário registrado com sucesso", body = AuthResponse),
+        (status = 409, description = "Email já cadastrado"),
+    ),
+    tag = "auth"
+)]
 async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
@@ -206,6 +216,16 @@ async fn register(
 ///
 /// Verifies the email/password combination and returns a signed JWT along with
 /// the user's public profile.
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login bem-sucedido", body = AuthResponse),
+        (status = 401, description = "Email ou senha inválidos"),
+    ),
+    tag = "auth"
+)]
 async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
@@ -238,6 +258,15 @@ async fn login(
 ///
 /// Returns the currently authenticated user's public profile. Requires a valid
 /// Bearer JWT (handled by the [`AuthUser`] extractor).
+#[utoipa::path(
+    get,
+    path = "/api/auth/me",
+    responses(
+        (status = 200, description = "Perfil do usuário autenticado", body = UserResponse),
+        (status = 401, description = "Não autenticado"),
+    ),
+    tag = "auth"
+)]
 async fn me(AuthUser(user): AuthUser) -> impl IntoResponse {
     Json(UserResponse::from(user))
 }

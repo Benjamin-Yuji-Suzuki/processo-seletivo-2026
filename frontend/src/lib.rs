@@ -8,18 +8,27 @@ use leptos_router::{
 pub mod api;
 pub mod components;
 pub mod pages;
+pub mod toast;
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    toast::provide_toast();
 
     view! {
         <Title text="LAPES E-Commerce"/>
-        <Stylesheet href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1/new.min.css"/>
+        <Stylesheet href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
         <Router>
             <components::NavBar/>
-            <main style="padding: 1rem;">
-                <Routes fallback=|| view! { <p>"Página não encontrada"</p> }>
+            <main>
+                <Routes fallback=|| view! {
+                    <div class="container" style="text-align:center;padding:4rem 1rem;">
+                        <div style="font-size:4rem;margin-bottom:1rem;opacity:0.3;">404</div>
+                        <h1>Página não encontrada</h1>
+                        <p style="color:var(--gray-500);margin-bottom:1.5rem;">A página que você procura não existe.</p>
+                        <a href="/" class="btn btn-primary">Voltar ao início</a>
+                    </div>
+                }>
                     <Route path=StaticSegment("") view=pages::home::HomePage/>
                     <Route path=StaticSegment("produtos") view=pages::products::ProductList/>
                     <Route path=StaticSegment("carrinho") view=pages::cart::CartPage/>
@@ -27,6 +36,10 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("admin") view=pages::admin::AdminPanel/>
                 </Routes>
             </main>
+            <toast::ToastContainer/>
+            <footer style="text-align:center;padding:2rem 1rem;color:var(--gray-400);font-size:0.85rem;border-top:1px solid var(--gray-200);margin-top:3rem;">
+                <p>&copy; 2026 LAPES E-Commerce. Todos os direitos reservados.</p>
+            </footer>
         </Router>
     }
 }

@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -20,6 +20,15 @@ pub fn routes() -> Router<AppState> {
 
 // ── List all coupons (admin only) ───────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/coupons",
+    responses(
+        (status = 200, description = "Lista de cupons", body = Vec<CouponResponse>),
+        (status = 403, description = "Apenas administradores"),
+    ),
+    tag = "coupons"
+)]
 async fn list_coupons(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -37,6 +46,16 @@ async fn list_coupons(
 
 // ── Create coupon (admin only) ──────────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/coupons",
+    request_body = CreateCouponRequest,
+    responses(
+        (status = 200, description = "Cupom criado", body = CouponResponse),
+        (status = 403, description = "Apenas administradores"),
+    ),
+    tag = "coupons"
+)]
 async fn create_coupon(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
@@ -176,6 +195,15 @@ async fn delete_coupon(
 
 // ── Validate coupon ─────────────────────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/coupons/validate",
+    request_body(content = serde_json::Value, description = "{\"code\": \"LAPES10\", \"total\": 100.0}"),
+    responses(
+        (status = 200, description = "Resultado da validação"),
+    ),
+    tag = "coupons"
+)]
 async fn validate_coupon(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,

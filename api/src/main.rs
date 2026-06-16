@@ -5,6 +5,8 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use lapes_ecommerce_api::auth;
 use lapes_ecommerce_api::cart;
@@ -12,6 +14,7 @@ use lapes_ecommerce_api::catalog;
 use lapes_ecommerce_api::checkout;
 use lapes_ecommerce_api::coupons;
 use lapes_ecommerce_api::state::AppState;
+use lapes_ecommerce_api::ApiDoc;
 
 #[tokio::main]
 async fn main() {
@@ -40,14 +43,21 @@ async fn main() {
 
     tracing::info!("Connected to PostgreSQL");
 
-    // Redis connection
-    let redis_client = redis::Client::open(redis_url)
-        .expect("Invalid Redis URL");
-    let redis = redis::aio::ConnectionManager::new(redis_client)
-        .await
-        .expect("Failed to connect to Redis");
-
-    tracing::info!("Connected to Redis");
+    // Redis connection (optional in dev)
+    let redis = match redis::aio::ConnectionManager::new(
+        redis::Client::open(redis_url).expect("Invalid Redis URL"),
+    )
+    .await
+    {
+        Ok(r) => {
+            tracing::info!("Connected to Redis");
+            Some(r)
+        }
+        Err(e) => {
+            tracing::warn!("Redis unavailable, running without cache: {e}");
+            None
+        }
+    };
 
     // Run migrations from ../migrations relative to workspace root
     sqlx::migrate!("../migrations")
@@ -65,6 +75,7 @@ async fn main() {
 
     // Build router
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest("/api/auth", auth::routes())
         .nest("/api", catalog::routes())
         .nest("/api", cart::routes())

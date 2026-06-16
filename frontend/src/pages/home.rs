@@ -57,7 +57,7 @@ pub fn HomePage() -> impl IntoView {
                                         .into_any()
                                 }
                                 Ok(data) => {
-                                    let items = data["data"]
+                                    let items = data["products"]
                                         .as_array()
                                         .or_else(|| data.as_array())
                                         .cloned()

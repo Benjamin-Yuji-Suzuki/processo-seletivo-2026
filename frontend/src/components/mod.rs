@@ -106,6 +106,11 @@ pub fn ProductCard(product: Value) -> impl IntoView {
     let qty_display = move || qty.get().to_string();
 
     let handle_add = move |pid: String| {
+        // Check if user is logged in
+        if crate::api::get_auth_token().is_none() {
+            toast.error("Faça login para adicionar ao carrinho!");
+            return;
+        }
         added.set(true);
         let q = qty.get();
         toast.success(format!("{}x adicionado ao carrinho!", q));

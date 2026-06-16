@@ -66,7 +66,7 @@ pub async fn api_post(path: &str, body: &Value) -> Result<Value, String> {
         headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
     }
 
-    let mut opts = RequestInit::new();
+    let opts = RequestInit::new();
     opts.set_method("POST");
     opts.set_body(&JsValue::from_str(&body_str));
     opts.set_headers(&headers);
@@ -101,7 +101,7 @@ pub async fn api_put(path: &str, body: &Value) -> Result<Value, String> {
         headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
     }
 
-    let mut opts = RequestInit::new();
+    let opts = RequestInit::new();
     opts.set_method("PUT");
     opts.set_body(&JsValue::from_str(&body_str));
     opts.set_headers(&headers);
@@ -134,7 +134,7 @@ pub async fn api_delete(path: &str) -> Result<(), String> {
         headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
     }
 
-    let mut opts = RequestInit::new();
+    let opts = RequestInit::new();
     opts.set_method("DELETE");
     opts.set_headers(&headers);
 

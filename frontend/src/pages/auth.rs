@@ -130,7 +130,7 @@ pub fn LoginPage() -> impl IntoView {
                             <p>{move || if is_register.get() { "Crie sua conta para começar a comprar" } else { "Faça login para acessar sua conta" }}</p>
                         </div>
 
-                        {if !message.get().is_empty() {
+                        {move || if !message.get().is_empty() {
                             Some(view! {
                                 <div class=if is_error.get() { "alert alert-error" } else { "alert alert-success" }>
                                     <span>{move || message.get()}</span>

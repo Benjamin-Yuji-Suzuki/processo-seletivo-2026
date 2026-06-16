@@ -78,7 +78,16 @@ fi
 info "Verificando portas..."
 fuser -k "${API_PORT}/tcp" 2>/dev/null || true
 fuser -k "${WEB_PORT}/tcp" 2>/dev/null || true
-sleep 1
+
+# Aguarda portas liberarem
+for port in $API_PORT $WEB_PORT; do
+    for i in $(seq 1 10); do
+        if ! fuser "$port/tcp" 2>/dev/null >/dev/null; then
+            break
+        fi
+        sleep 0.5
+    done
+done
 
 # ── 4. Compilar e subir API ──────────────────────────
 info "Compilando e iniciando API (porta ${API_PORT})..."

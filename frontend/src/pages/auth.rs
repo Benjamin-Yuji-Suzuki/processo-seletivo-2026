@@ -13,10 +13,9 @@ pub fn LoginPage() -> impl IntoView {
     let is_error = RwSignal::new(false);
     let loading = RwSignal::new(false);
     let nav = use_navigate();
-    // Suppress unused warning from nav usage in async block
-    let _ = &nav;
 
     let submit = move |_| {
+        let nav = nav.clone();
         let reg = is_register.get();
         message.set(String::new());
         loading.set(true);

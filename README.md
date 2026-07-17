@@ -209,18 +209,6 @@ Os testes cobrem os fluxos críticos: checkout completo, concorrência de estoqu
 
 ---
 
-## Variáveis de Ambiente
-
-```env
-DATABASE_URL=postgres://ben:1234@localhost:5432/lapes_ecommerce
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=sua_chave_secreta_aqui
-JWT_EXPIRES_IN=24h
-PAYMENT_GATEWAY_URL=https://api.sandbox.gateway.com/
-PAYMENT_GATEWAY_KEY=chave_do_gateway
-RUST_LOG=lapes_ecommerce_api=info,tower_http=info
-```
-
 ---
 
 *Desafio LAPES 2026 — Benjamin Yuji Suzuki*

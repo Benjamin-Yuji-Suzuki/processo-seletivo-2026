@@ -11,6 +11,7 @@ use tracing_subscriber::EnvFilter;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use lapes_ecommerce_api::ApiDoc;
 use lapes_ecommerce_api::auth;
 use lapes_ecommerce_api::cart;
 use lapes_ecommerce_api::catalog;
@@ -18,7 +19,6 @@ use lapes_ecommerce_api::checkout;
 use lapes_ecommerce_api::coupons;
 use lapes_ecommerce_api::health;
 use lapes_ecommerce_api::state::AppState;
-use lapes_ecommerce_api::ApiDoc;
 
 #[tokio::main]
 async fn main() {
@@ -31,12 +31,9 @@ async fn main() {
         .json()
         .init();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".into());
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .expect("JWT_SECRET must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".into());
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
     // Database pool
     let db = PgPoolOptions::new()
@@ -84,13 +81,16 @@ async fn main() {
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/api/health", get(health::health_check))
-        .route("/api/metrics", get({
-            let mh = metrics_handle.clone();
-            move || {
-                let mh = mh.clone();
-                async move { mh.render() }
-            }
-        }))
+        .route(
+            "/api/metrics",
+            get({
+                let mh = metrics_handle.clone();
+                move || {
+                    let mh = mh.clone();
+                    async move { mh.render() }
+                }
+            }),
+        )
         .nest("/api/auth", auth::routes())
         .nest("/api", catalog::routes())
         .nest("/api", cart::routes())

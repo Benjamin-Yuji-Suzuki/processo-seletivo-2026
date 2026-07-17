@@ -1,8 +1,8 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::HeaderMap,
     routing::{get, post, put},
-    Json, Router,
 };
 use redis::AsyncCommands;
 use serde_json::json;
@@ -11,9 +11,7 @@ use uuid::Uuid;
 
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppResult};
-use crate::models::{
-    CheckoutRequest, Order, OrderItem, OrderItemResponse, OrderResponse, Product,
-};
+use crate::models::{CheckoutRequest, Order, OrderItem, OrderItemResponse, OrderResponse, Product};
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
@@ -88,7 +86,15 @@ async fn checkout(
     .fetch_all(&state.db)
     .await?;
 
-    let cart_items: Vec<(Uuid, Uuid, String, String, sqlx::types::BigDecimal, i32, f64)> = rows
+    let cart_items: Vec<(
+        Uuid,
+        Uuid,
+        String,
+        String,
+        sqlx::types::BigDecimal,
+        i32,
+        f64,
+    )> = rows
         .iter()
         .map(|row| {
             Ok((
@@ -107,7 +113,10 @@ async fn checkout(
         return Err(AppError::BadRequest("Carrinho vazio".into()));
     }
 
-    let total_cents: i64 = cart_items.iter().map(|(_, _, _, _, _, _, sub)| to_cents(*sub)).sum();
+    let total_cents: i64 = cart_items
+        .iter()
+        .map(|(_, _, _, _, _, _, sub)| to_cents(*sub))
+        .sum();
     let total = from_cents(total_cents);
 
     // 2. Coupon validation
@@ -183,7 +192,10 @@ async fn checkout(
     let mut tx = state.db.begin().await?;
 
     // 4. Lock products and validate stock
-    let _product_ids: Vec<Uuid> = cart_items.iter().map(|(_, pid, _, _, _, _, _)| *pid).collect();
+    let _product_ids: Vec<Uuid> = cart_items
+        .iter()
+        .map(|(_, pid, _, _, _, _, _)| *pid)
+        .collect();
     // We lock each product individually via SELECT FOR UPDATE
     for (_ci_id, pid, _pname, _pimg, _price_bd, qty, _subtotal_f) in &cart_items {
         let product: Product = sqlx::query_as::<_, Product>(
@@ -282,23 +294,22 @@ async fn checkout(
     // 11. Invalidate Redis cache for affected products
     if let Some(ref conn) = state.redis {
         for (_, pid, _, _, _, _, _) in &cart_items {
-            let _: Result<(), _> = conn
-                .clone()
-                .del(format!("product:{pid}"))
-                .await;
+            let _: Result<(), _> = conn.clone().del(format!("product:{pid}")).await;
         }
     }
 
     // 12. Build response
     let order_items: Vec<OrderItemResponse> = cart_items
         .iter()
-        .map(|(_, pid, pname, _, _price_bd, qty, subtotal_f)| OrderItemResponse {
-            product_id: *pid,
-            product_name: pname.clone(),
-            quantity: *qty,
-            unit_price: from_cents(to_cents(*subtotal_f / *qty as f64)),
-            subtotal: *subtotal_f,
-        })
+        .map(
+            |(_, pid, pname, _, _price_bd, qty, subtotal_f)| OrderItemResponse {
+                product_id: *pid,
+                product_name: pname.clone(),
+                quantity: *qty,
+                unit_price: from_cents(to_cents(*subtotal_f / *qty as f64)),
+                subtotal: *subtotal_f,
+            },
+        )
         .collect();
 
     let response = OrderResponse {
@@ -354,12 +365,10 @@ async fn list_orders(
 
     let mut responses = Vec::new();
     for order in orders {
-        let items = sqlx::query_as::<_, OrderItem>(
-            "SELECT * FROM order_items WHERE order_id = $1",
-        )
-        .bind(order.id)
-        .fetch_all(&state.db)
-        .await?;
+        let items = sqlx::query_as::<_, OrderItem>("SELECT * FROM order_items WHERE order_id = $1")
+            .bind(order.id)
+            .fetch_all(&state.db)
+            .await?;
 
         responses.push(OrderResponse {
             id: order.id,
@@ -403,21 +412,17 @@ async fn get_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<OrderResponse>> {
-    let order = sqlx::query_as::<_, Order>(
-        "SELECT * FROM orders WHERE id = $1 AND user_id = $2",
-    )
-    .bind(id)
-    .bind(user.id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::NotFound("Pedido não encontrado".into()))?;
+    let order = sqlx::query_as::<_, Order>("SELECT * FROM orders WHERE id = $1 AND user_id = $2")
+        .bind(id)
+        .bind(user.id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Pedido não encontrado".into()))?;
 
-    let items = sqlx::query_as::<_, OrderItem>(
-        "SELECT * FROM order_items WHERE order_id = $1",
-    )
-    .bind(order.id)
-    .fetch_all(&state.db)
-    .await?;
+    let items = sqlx::query_as::<_, OrderItem>("SELECT * FROM order_items WHERE order_id = $1")
+        .bind(order.id)
+        .fetch_all(&state.db)
+        .await?;
 
     Ok(Json(OrderResponse {
         id: order.id,
@@ -477,12 +482,10 @@ async fn cancel_order(
     let mut tx = state.db.begin().await?;
 
     // Return stock
-    let items = sqlx::query_as::<_, OrderItem>(
-        "SELECT * FROM order_items WHERE order_id = $1",
-    )
-    .bind(order.id)
-    .fetch_all(&mut *tx)
-    .await?;
+    let items = sqlx::query_as::<_, OrderItem>("SELECT * FROM order_items WHERE order_id = $1")
+        .bind(order.id)
+        .fetch_all(&mut *tx)
+        .await?;
 
     for item in &items {
         sqlx::query("UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2")
@@ -507,7 +510,9 @@ async fn cancel_order(
 
     tx.commit().await?;
 
-    Ok(Json(json!({ "message": "Pedido cancelado com sucesso", "order_id": order.id })))
+    Ok(Json(
+        json!({ "message": "Pedido cancelado com sucesso", "order_id": order.id }),
+    ))
 }
 
 // ── Update order status (admin only) ────────────────────────────────────
@@ -534,7 +539,9 @@ async fn update_order_status(
     Json(body): Json<serde_json::Value>,
 ) -> AppResult<Json<serde_json::Value>> {
     if user.role != "admin" {
-        return Err(AppError::Forbidden("Apenas administradores podem alterar status".into()));
+        return Err(AppError::Forbidden(
+            "Apenas administradores podem alterar status".into(),
+        ));
     }
 
     let new_status = body
@@ -550,13 +557,11 @@ async fn update_order_status(
         ("cancelled", &[]),
     ];
 
-    let order = sqlx::query_as::<_, Order>(
-        "SELECT * FROM orders WHERE id = $1 FOR UPDATE",
-    )
-    .bind(id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::NotFound("Pedido não encontrado".into()))?;
+    let order = sqlx::query_as::<_, Order>("SELECT * FROM orders WHERE id = $1 FOR UPDATE")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Pedido não encontrado".into()))?;
 
     let allowed = valid_transitions
         .iter()
@@ -577,7 +582,9 @@ async fn update_order_status(
         .execute(&state.db)
         .await?;
 
-    Ok(Json(json!({ "message": format!("Status atualizado para '{}'", new_status), "order_id": id })))
+    Ok(Json(
+        json!({ "message": format!("Status atualizado para '{}'", new_status), "order_id": id }),
+    ))
 }
 
 /// `GET /api/orders/all` — list all orders (admin only)
@@ -595,23 +602,21 @@ async fn list_all_orders(
     State(state): State<AppState>,
 ) -> AppResult<Json<Vec<OrderResponse>>> {
     if user.role != "admin" {
-        return Err(AppError::Forbidden("Apenas administradores podem ver todos os pedidos".into()));
+        return Err(AppError::Forbidden(
+            "Apenas administradores podem ver todos os pedidos".into(),
+        ));
     }
 
-    let orders = sqlx::query_as::<_, Order>(
-        "SELECT * FROM orders ORDER BY created_at DESC",
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let orders = sqlx::query_as::<_, Order>("SELECT * FROM orders ORDER BY created_at DESC")
+        .fetch_all(&state.db)
+        .await?;
 
     let mut responses = Vec::new();
     for order in orders {
-        let items = sqlx::query_as::<_, OrderItem>(
-            "SELECT * FROM order_items WHERE order_id = $1",
-        )
-        .bind(order.id)
-        .fetch_all(&state.db)
-        .await?;
+        let items = sqlx::query_as::<_, OrderItem>("SELECT * FROM order_items WHERE order_id = $1")
+            .bind(order.id)
+            .fetch_all(&state.db)
+            .await?;
 
         responses.push(OrderResponse {
             id: order.id,

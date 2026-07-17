@@ -3,9 +3,8 @@ use leptos::prelude::*;
 
 #[component]
 pub fn HomePage() -> impl IntoView {
-    let products = LocalResource::new(|| async move {
-        api::api_get("/api/products?page=1&limit=8").await
-    });
+    let products =
+        LocalResource::new(|| async move { api::api_get("/api/products?page=1&limit=8").await });
 
     view! {
         <div>

@@ -8,8 +8,7 @@ use uuid::Uuid;
 async fn main() {
     dotenvy::dotenv().ok();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
@@ -20,7 +19,12 @@ async fn main() {
     // Seed admin user
     let admin_id = Uuid::new_v4();
     let admin_hash = argon2::Argon2::default()
-        .hash_password(b"admin123", &argon2::password_hash::SaltString::generate(&mut argon2::password_hash::rand_core::OsRng))
+        .hash_password(
+            b"admin123",
+            &argon2::password_hash::SaltString::generate(
+                &mut argon2::password_hash::rand_core::OsRng,
+            ),
+        )
         .unwrap()
         .to_string();
 
@@ -41,7 +45,12 @@ async fn main() {
     // Seed customer user
     let customer_id = Uuid::new_v4();
     let customer_hash = argon2::Argon2::default()
-        .hash_password(b"customer123", &argon2::password_hash::SaltString::generate(&mut argon2::password_hash::rand_core::OsRng))
+        .hash_password(
+            b"customer123",
+            &argon2::password_hash::SaltString::generate(
+                &mut argon2::password_hash::rand_core::OsRng,
+            ),
+        )
         .unwrap()
         .to_string();
 
@@ -61,16 +70,76 @@ async fn main() {
 
     // Seed products
     let products = vec![
-        ("Camiseta LAPES 2026", "Camiseta oficial do LAPES 2026", 49.90, "Vestuário", 100),
-        ("Caneca Personalizada", "Caneca de cerâmica com logo LAPES", 29.90, "Acessórios", 50),
-        ("Moletom Tech", "Moletom confortável estilo techwear", 129.90, "Vestuário", 30),
-        ("Caderno Inteligente", "Caderno pautado capa dura", 39.90, "Papelaria", 75),
-        ("Stickers Dev Rust", "Pack de 10 stickers de tecnologia", 19.90, "Acessórios", 200),
-        ("Teclado Mecânico 60%", "Teclado mecânico RGB switch azul", 249.90, "Eletrônicos", 15),
-        ("Mousepad XXL", "Mousepad 90x40cm com borda costurada", 79.90, "Eletrônicos", 40),
-        ("Livro: Rust Avançado", "Guia completo de Rust para sistemas", 89.90, "Livros", 25),
-        ("Fone Bluetooth", "Fone sem fio com cancelamento de ruído", 199.90, "Eletrônicos", 20),
-        ("Capa Notebook 15\"", "Capa protetora para notebook 15 polegadas", 59.90, "Acessórios", 35),
+        (
+            "Camiseta LAPES 2026",
+            "Camiseta oficial do LAPES 2026",
+            49.90,
+            "Vestuário",
+            100,
+        ),
+        (
+            "Caneca Personalizada",
+            "Caneca de cerâmica com logo LAPES",
+            29.90,
+            "Acessórios",
+            50,
+        ),
+        (
+            "Moletom Tech",
+            "Moletom confortável estilo techwear",
+            129.90,
+            "Vestuário",
+            30,
+        ),
+        (
+            "Caderno Inteligente",
+            "Caderno pautado capa dura",
+            39.90,
+            "Papelaria",
+            75,
+        ),
+        (
+            "Stickers Dev Rust",
+            "Pack de 10 stickers de tecnologia",
+            19.90,
+            "Acessórios",
+            200,
+        ),
+        (
+            "Teclado Mecânico 60%",
+            "Teclado mecânico RGB switch azul",
+            249.90,
+            "Eletrônicos",
+            15,
+        ),
+        (
+            "Mousepad XXL",
+            "Mousepad 90x40cm com borda costurada",
+            79.90,
+            "Eletrônicos",
+            40,
+        ),
+        (
+            "Livro: Rust Avançado",
+            "Guia completo de Rust para sistemas",
+            89.90,
+            "Livros",
+            25,
+        ),
+        (
+            "Fone Bluetooth",
+            "Fone sem fio com cancelamento de ruído",
+            199.90,
+            "Eletrônicos",
+            20,
+        ),
+        (
+            "Capa Notebook 15\"",
+            "Capa protetora para notebook 15 polegadas",
+            59.90,
+            "Acessórios",
+            35,
+        ),
     ];
 
     for (name, desc, price, category, stock) in &products {

@@ -46,7 +46,10 @@ impl axum::response::IntoResponse for AppError {
             }
             AppError::Redis(e) => {
                 tracing::error!(error = %e, "Redis error");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".into())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".into(),
+                )
             }
             AppError::Validation(m) => (StatusCode::UNPROCESSABLE_ENTITY, m.clone()),
             AppError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, m.clone()),

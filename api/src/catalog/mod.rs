@@ -1,8 +1,8 @@
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     routing::get,
-    Json, Router,
 };
 use redis::AsyncCommands;
 use uuid::Uuid;
@@ -288,10 +288,11 @@ async fn delete_product(
         ));
     }
 
-    let result = sqlx::query("UPDATE products SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
-        .bind(id)
-        .execute(&state.db)
-        .await?;
+    let result =
+        sqlx::query("UPDATE products SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(&state.db)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("Product {id} not found")));

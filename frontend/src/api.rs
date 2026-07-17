@@ -1,18 +1,14 @@
 use gloo_net::http::Request;
 use serde_json::Value;
-use wasm_bindgen::JsValue;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestInit;
 
 const API_BASE: &str = "";
 
 fn storage() -> web_sys::Storage {
-    web_sys::window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
+    web_sys::window().unwrap().local_storage().unwrap().unwrap()
 }
 
 pub fn get_auth_token() -> Option<String> {
@@ -52,18 +48,22 @@ pub async fn api_get(path: &str) -> Result<Value, String> {
         .send()
         .await
         .map_err(|e| format!("Request error: {:?}", e))?;
-    let text = resp.text().await.map_err(|e| format!("Read error: {:?}", e))?;
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Read error: {:?}", e))?;
     serde_json::from_str(&text).map_err(|e| format!("JSON parse error: {}", e))
 }
 
 pub async fn api_post(path: &str, body: &Value) -> Result<Value, String> {
     let url = format!("{}{}", API_BASE, path);
-    let body_str =
-        serde_json::to_string(body).map_err(|e| format!("Serialize error: {}", e))?;
+    let body_str = serde_json::to_string(body).map_err(|e| format!("Serialize error: {}", e))?;
 
     let headers = web_sys::Headers::new().map_err(|e| format!("Headers create: {:?}", e))?;
     for (key, val) in auth_headers() {
-        headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
+        headers
+            .set(key, &val)
+            .map_err(|e| format!("Header set: {:?}", e))?;
     }
 
     let opts = RequestInit::new();
@@ -93,12 +93,13 @@ pub async fn api_post(path: &str, body: &Value) -> Result<Value, String> {
 
 pub async fn api_put(path: &str, body: &Value) -> Result<Value, String> {
     let url = format!("{}{}", API_BASE, path);
-    let body_str =
-        serde_json::to_string(body).map_err(|e| format!("Serialize error: {}", e))?;
+    let body_str = serde_json::to_string(body).map_err(|e| format!("Serialize error: {}", e))?;
 
     let headers = web_sys::Headers::new().map_err(|e| format!("Headers create: {:?}", e))?;
     for (key, val) in auth_headers() {
-        headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
+        headers
+            .set(key, &val)
+            .map_err(|e| format!("Header set: {:?}", e))?;
     }
 
     let opts = RequestInit::new();
@@ -131,7 +132,9 @@ pub async fn api_delete(path: &str) -> Result<(), String> {
 
     let headers = web_sys::Headers::new().map_err(|e| format!("Headers create: {:?}", e))?;
     for (key, val) in auth_headers() {
-        headers.set(key, &val).map_err(|e| format!("Header set: {:?}", e))?;
+        headers
+            .set(key, &val)
+            .map_err(|e| format!("Header set: {:?}", e))?;
     }
 
     let opts = RequestInit::new();

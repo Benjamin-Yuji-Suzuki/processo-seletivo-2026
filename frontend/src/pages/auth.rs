@@ -77,7 +77,11 @@ pub fn LoginPage() -> impl IntoView {
                         .map(|s| s.to_string());
                     if let Some(t) = token {
                         api::set_auth_token(&t);
-                        toast.success(if reg { "Conta criada com sucesso!" } else { "Login realizado com sucesso!" });
+                        toast.success(if reg {
+                            "Conta criada com sucesso!"
+                        } else {
+                            "Login realizado com sucesso!"
+                        });
                         is_error.set(false);
                         loading.set(false);
                         nav("/", Default::default());

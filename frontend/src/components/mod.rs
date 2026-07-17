@@ -16,7 +16,11 @@ pub fn NavBar() -> impl IntoView {
 
     let is_active = move |path: &str| {
         let loc = location.pathname.get();
-        if loc == path || loc.starts_with(path) { "active" } else { "" }
+        if loc == path || loc.starts_with(path) {
+            "active"
+        } else {
+            ""
+        }
     };
 
     view! {
@@ -65,23 +69,14 @@ pub fn NavBar() -> impl IntoView {
 
 #[component]
 pub fn ProductCard(product: Value) -> impl IntoView {
-    let name = product["name"]
-        .as_str()
-        .unwrap_or("Sem nome")
-        .to_string();
+    let name = product["name"].as_str().unwrap_or("Sem nome").to_string();
     let price = product["price"]
         .as_str()
         .and_then(|s| s.parse::<f64>().ok())
         .or_else(|| product["price"].as_f64())
         .unwrap_or(0.0);
-    let desc = product["description"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    let image = product["image_url"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let desc = product["description"].as_str().unwrap_or("").to_string();
+    let image = product["image_url"].as_str().unwrap_or("").to_string();
     let id = product["id"]
         .as_str()
         .map(|s| s.to_string())
@@ -102,7 +97,7 @@ pub fn ProductCard(product: Value) -> impl IntoView {
         if current < 10 {
             qty.set(current + 1);
         }
-    };  
+    };
     let qty_display = move || qty.get().to_string();
     let dec_disabled = move || qty.get() <= 1;
     let inc_disabled = move || qty.get() >= 10;
@@ -123,7 +118,8 @@ pub fn ProductCard(product: Value) -> impl IntoView {
                 let _ = api::api_post(
                     "/api/cart",
                     &serde_json::json!({ "product_id": id, "quantity": q }),
-                ).await;
+                )
+                .await;
                 // Reset after 2s
                 let window = web_sys::window().unwrap();
                 let closure = wasm_bindgen::closure::Closure::once(move || added.set(false));

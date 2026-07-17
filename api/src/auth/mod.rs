@@ -5,17 +5,17 @@
 //! for the three auth endpoints.
 
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 use axum::{
+    Json, Router,
     extract::{FromRequestParts, State},
-    http::{header, request::Parts, StatusCode},
+    http::{StatusCode, header, request::Parts},
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use std::future::Future;
 use uuid::Uuid;
 use validator::Validate;
@@ -152,12 +152,10 @@ async fn register(
 
     // 2. Check for existing user (case-insensitive email would be better, but
     //    this keeps the query simple for the MVP).
-    let existing = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM users WHERE email = $1",
-    )
-    .bind(&payload.email)
-    .fetch_one(&state.db)
-    .await?;
+    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email = $1")
+        .bind(&payload.email)
+        .fetch_one(&state.db)
+        .await?;
 
     if existing > 0 {
         return Err(AppError::Conflict(

@@ -82,9 +82,8 @@ pub fn AdminPanel() -> impl IntoView {
 
 #[component]
 fn ProductManagement() -> impl IntoView {
-    let products = LocalResource::new(|| async move {
-        api::api_get("/api/products?page=1&limit=100").await
-    });
+    let products =
+        LocalResource::new(|| async move { api::api_get("/api/products?page=1&limit=100").await });
 
     let name = RwSignal::new(String::new());
     let description = RwSignal::new(String::new());
@@ -145,7 +144,11 @@ fn ProductManagement() -> impl IntoView {
             };
             match result {
                 Ok(_) => {
-                    let msg = if is_new { "Produto criado com sucesso!" } else { "Produto atualizado com sucesso!" };
+                    let msg = if is_new {
+                        "Produto criado com sucesso!"
+                    } else {
+                        "Produto atualizado com sucesso!"
+                    };
                     form_msg.set(msg.to_string());
                     toast.success(msg);
                     stock.set(String::new());
@@ -159,7 +162,11 @@ fn ProductManagement() -> impl IntoView {
                 }
                 Err(e) => {
                     form_msg.set(format!("Erro: {}", e));
-                    toast.error(format!("Erro ao {} produto: {}", if is_new { "criar" } else { "atualizar" }, e));
+                    toast.error(format!(
+                        "Erro ao {} produto: {}",
+                        if is_new { "criar" } else { "atualizar" },
+                        e
+                    ));
                 }
             }
         });
@@ -168,10 +175,14 @@ fn ProductManagement() -> impl IntoView {
     let edit_product = move |product: Value| {
         name.set(product["name"].as_str().unwrap_or("").to_string());
         description.set(product["description"].as_str().unwrap_or("").to_string());
-        price.set(product["price"].as_str()
-            .and_then(|s| s.parse::<f64>().ok())
-            .or_else(|| product["price"].as_f64())
-            .unwrap_or(0.0).to_string());
+        price.set(
+            product["price"]
+                .as_str()
+                .and_then(|s| s.parse::<f64>().ok())
+                .or_else(|| product["price"].as_f64())
+                .unwrap_or(0.0)
+                .to_string(),
+        );
         stock.set(product["stock"].as_i64().unwrap_or(0).to_string());
         category.set(product["category"].as_str().unwrap_or("").to_string());
         image_url.set(product["image_url"].as_str().unwrap_or("").to_string());
@@ -185,7 +196,10 @@ fn ProductManagement() -> impl IntoView {
 
     let delete_product = move |product_id: String| {
         let window = web_sys::window().unwrap();
-        if !window.confirm_with_message("Tem certeza que deseja excluir este produto?").unwrap_or(false) {
+        if !window
+            .confirm_with_message("Tem certeza que deseja excluir este produto?")
+            .unwrap_or(false)
+        {
             return;
         }
         let toast = crate::toast::use_toast();
@@ -399,9 +413,7 @@ fn ProductManagement() -> impl IntoView {
 
 #[component]
 fn OrderManagement() -> impl IntoView {
-    let orders = LocalResource::new(|| async move {
-        api::api_get("/api/orders/all").await
-    });
+    let orders = LocalResource::new(|| async move { api::api_get("/api/orders/all").await });
 
     fn status_badge_class(status: &str) -> &'static str {
         match status {
@@ -548,9 +560,7 @@ fn OrderManagement() -> impl IntoView {
 
 #[component]
 fn CouponManagement() -> impl IntoView {
-    let coupons = LocalResource::new(|| async move {
-        api::api_get("/api/coupons").await
-    });
+    let coupons = LocalResource::new(|| async move { api::api_get("/api/coupons").await });
 
     let code = RwSignal::new(String::new());
     let discount = RwSignal::new(String::new());
@@ -609,7 +619,11 @@ fn CouponManagement() -> impl IntoView {
             };
             match result {
                 Ok(_) => {
-                    let msg = if is_new { "Cupom criado com sucesso!" } else { "Cupom atualizado com sucesso!" };
+                    let msg = if is_new {
+                        "Cupom criado com sucesso!"
+                    } else {
+                        "Cupom atualizado com sucesso!"
+                    };
                     form_msg.set(msg.to_string());
                     toast.success(msg);
                     code.set(String::new());
@@ -622,7 +636,11 @@ fn CouponManagement() -> impl IntoView {
                 }
                 Err(e) => {
                     form_msg.set(format!("Erro: {}", e));
-                    toast.error(format!("Erro ao {} cupom: {}", if is_new { "criar" } else { "atualizar" }, e));
+                    toast.error(format!(
+                        "Erro ao {} cupom: {}",
+                        if is_new { "criar" } else { "atualizar" },
+                        e
+                    ));
                 }
             }
         });
@@ -631,7 +649,12 @@ fn CouponManagement() -> impl IntoView {
     let edit_coupon = move |coupon: Value| {
         code.set(coupon["code"].as_str().unwrap_or("").to_string());
         discount.set(coupon["discount_value"].as_f64().unwrap_or(0.0).to_string());
-        kind.set(coupon["discount_type"].as_str().unwrap_or("percentage").to_string());
+        kind.set(
+            coupon["discount_type"]
+                .as_str()
+                .unwrap_or("percentage")
+                .to_string(),
+        );
         max_uses.set(coupon["max_uses"].as_i64().unwrap_or(0).to_string());
         expires_at.set(coupon["expires_at"].as_str().unwrap_or("").to_string());
         editing_id.set(
@@ -644,7 +667,10 @@ fn CouponManagement() -> impl IntoView {
 
     let delete_coupon = move |coupon_id: String| {
         let window = web_sys::window().unwrap();
-        if !window.confirm_with_message("Tem certeza que deseja excluir este cupom?").unwrap_or(false) {
+        if !window
+            .confirm_with_message("Tem certeza que deseja excluir este cupom?")
+            .unwrap_or(false)
+        {
             return;
         }
         let toast = crate::toast::use_toast();

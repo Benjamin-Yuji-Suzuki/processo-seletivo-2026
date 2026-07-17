@@ -1,7 +1,7 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{get, post, put},
-    Json, Router,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -41,7 +41,9 @@ async fn list_coupons(
         .fetch_all(&state.db)
         .await?;
 
-    Ok(Json(coupons.into_iter().map(CouponResponse::from).collect()))
+    Ok(Json(
+        coupons.into_iter().map(CouponResponse::from).collect(),
+    ))
 }
 
 // ── Create coupon (admin only) ──────────────────────────────────────────
@@ -106,15 +108,17 @@ async fn update_coupon(
         return Err(AppError::Forbidden("Apenas administradores".into()));
     }
 
-    let coupon = sqlx::query_as::<_, Coupon>(
-        "SELECT * FROM coupons WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::NotFound("Cupom não encontrado".into()))?;
+    let coupon = sqlx::query_as::<_, Coupon>("SELECT * FROM coupons WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Cupom não encontrado".into()))?;
 
-    let code = body.get("code").and_then(|v| v.as_str()).unwrap_or(&coupon.code).to_string();
+    let code = body
+        .get("code")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&coupon.code)
+        .to_string();
     let discount_type = body
         .get("discount_type")
         .and_then(|v| v.as_str())
@@ -221,13 +225,11 @@ async fn validate_coupon(
         .and_then(|v| v.as_f64())
         .ok_or_else(|| AppError::BadRequest("Campo 'total' é obrigatório".into()))?;
 
-    let coupon = sqlx::query_as::<_, Coupon>(
-        "SELECT * FROM coupons WHERE UPPER(code) = $1",
-    )
-    .bind(&code)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::BadRequest("Cupom não encontrado".into()))?;
+    let coupon = sqlx::query_as::<_, Coupon>("SELECT * FROM coupons WHERE UPPER(code) = $1")
+        .bind(&code)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::BadRequest("Cupom não encontrado".into()))?;
 
     // Check active
     if !coupon.is_active {

@@ -61,11 +61,11 @@ impl From<User> for UserResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,       // user id
+    pub sub: String, // user id
     pub email: String,
     pub role: String,
-    pub exp: usize,        // expiry timestamp
-    pub iat: usize,        // issued at
+    pub exp: usize, // expiry timestamp
+    pub iat: usize, // issued at
 }
 
 // ── Product ───────────────────────────────────────────────────────────
@@ -297,7 +297,10 @@ pub fn to_bigdecimal_cents(bd: &BigDecimal) -> i64 {
         (format!("{}00", s), false)
     };
     // Remove any non-digit except leading '-'
-    let clean: String = int_part.chars().filter(|c| c.is_ascii_digit() || *c == '-').collect();
+    let clean: String = int_part
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '-')
+        .collect();
     i64::from_str(&clean).unwrap_or(0)
 }
 

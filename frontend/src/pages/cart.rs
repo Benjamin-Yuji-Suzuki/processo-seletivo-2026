@@ -51,7 +51,8 @@ pub fn CartPage() -> impl IntoView {
             let _ = api::api_put(
                 &format!("/api/cart/{:}", id),
                 &serde_json::json!({ "quantity": qty }),
-            ).await;
+            )
+            .await;
             cart.refetch();
         });
     };

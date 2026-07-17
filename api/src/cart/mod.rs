@@ -1,18 +1,16 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{delete, get, post, put},
-    Json, Router,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::Row;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppResult};
-use crate::models::{
-    AddToCartRequest, CartItemResponse, CartResponse, UpdateCartRequest,
-};
+use crate::models::{AddToCartRequest, CartItemResponse, CartResponse, UpdateCartRequest};
 use crate::state::AppState;
 
 /// Mount all cart routes on a `/cart`-relative router.
@@ -42,10 +40,7 @@ pub fn routes() -> Router<AppState> {
     ),
     tag = "cart"
 )]
-async fn list_cart(
-    auth: AuthUser,
-    State(state): State<AppState>,
-) -> AppResult<Json<CartResponse>> {
+async fn list_cart(auth: AuthUser, State(state): State<AppState>) -> AppResult<Json<CartResponse>> {
     let rows = sqlx::query(
         r#"
         SELECT
@@ -116,11 +111,12 @@ async fn add_to_cart(
 
     // 1. Verify product exists and snapshot current stock.
     // 1. Verify product exists and snapshot current stock.
-    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
-        .bind(payload.product_id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
+    let available: i32 =
+        sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
+            .bind(payload.product_id)
+            .fetch_optional(&state.db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
 
     // 2. Read the quantity already in the cart (0 if not present).
     let current_qty: i32 = sqlx::query_scalar(
@@ -214,13 +210,11 @@ async fn update_cart_item(
 
     // --- Quantity is zero → remove the item --------------------------------
     if payload.quantity == 0 {
-        let result = sqlx::query(
-            "DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2",
-        )
-        .bind(auth.0.id)
-        .bind(product_id)
-        .execute(&state.db)
-        .await?;
+        let result = sqlx::query("DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2")
+            .bind(auth.0.id)
+            .bind(product_id)
+            .execute(&state.db)
+            .await?;
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Cart item not found".into()));
@@ -230,11 +224,12 @@ async fn update_cart_item(
     }
 
     // --- Non-zero quantity → validate stock and update ---------------------
-    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
-        .bind(product_id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
+    let available: i32 =
+        sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
+            .bind(product_id)
+            .fetch_optional(&state.db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
 
     if payload.quantity > available {
         return Err(AppError::BadRequest(format!(
@@ -303,13 +298,11 @@ async fn remove_cart_item(
     State(state): State<AppState>,
     Path(product_id): Path<Uuid>,
 ) -> AppResult<Json<Value>> {
-    let result = sqlx::query(
-        "DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2",
-    )
-    .bind(auth.0.id)
-    .bind(product_id)
-    .execute(&state.db)
-    .await?;
+    let result = sqlx::query("DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2")
+        .bind(auth.0.id)
+        .bind(product_id)
+        .execute(&state.db)
+        .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("Cart item not found".into()));
@@ -329,10 +322,7 @@ async fn remove_cart_item(
     ),
     tag = "cart"
 )]
-async fn clear_cart(
-    auth: AuthUser,
-    State(state): State<AppState>,
-) -> AppResult<Json<Value>> {
+async fn clear_cart(auth: AuthUser, State(state): State<AppState>) -> AppResult<Json<Value>> {
     sqlx::query("DELETE FROM cart_items WHERE user_id = $1")
         .bind(auth.0.id)
         .execute(&state.db)

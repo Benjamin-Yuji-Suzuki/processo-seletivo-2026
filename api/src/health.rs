@@ -1,7 +1,7 @@
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::state::AppState;
 
@@ -14,9 +14,7 @@ use crate::state::AppState;
         (status = 503, description = "API indisponível"),
     ),
 )]
-pub async fn health_check(
-    State(state): State<AppState>,
-) -> (StatusCode, Json<Value>) {
+pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     let mut db_status = "up";
     let mut db_error: Option<String> = None;
 
@@ -38,7 +36,11 @@ pub async fn health_check(
     }
 
     let healthy = db_status == "up";
-    let status_code = if healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let status_code = if healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
 
     let body = json!({
         "status": if healthy { "healthy" } else { "unhealthy" },

@@ -7,10 +7,13 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://ben:1234@localhost:5432/lapes_ecommerce
+  REDIS_URL: redis://localhost:6379
+  JWT_SECRET: ci-test-secret
 
 jobs:
   check:
-    name: Check & Lint
+    name: Check & Test
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -22,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready -U ben -d lapes_ecommerce
+          --health-cmd "pg_isready -U ben -d lapes_ecommerce"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 5
@@ -54,24 +57,16 @@ jobs:
         run: cargo clippy --workspace -- -D warnings
 
       - name: Build
-        run: cargo build --release -p lapes-ecommerce-api
+        run: cargo build -p lapes-ecommerce-api
 
       - name: Run migrations
         run: cargo run --bin migrate
-        env:
-          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
 
       - name: Run seed
         run: cargo run --bin seed
-        env:
-          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
 
       - name: Integration tests
         run: cargo test -p lapes-ecommerce-api
-        env:
-          DATABASE_URL: postgres://ben:***@localhost:5432/lapes_ecommerce
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ci-test-secret
 
   deploy:
     name: Build & Push Docker Image

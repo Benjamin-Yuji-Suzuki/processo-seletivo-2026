@@ -60,9 +60,10 @@ async fn list_products(
     let products: Vec<Product> = sqlx::query_as(
         r#"
         SELECT id, name, description, price, category, image_url,
-               stock, created_at, updated_at
+               stock, created_at, updated_at, deleted_at
         FROM products
-        WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
+        WHERE deleted_at IS NULL
+          AND ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
           AND ($2::text IS NULL OR category = $2)
           AND ($3::float8 IS NULL OR price >= $3::numeric)
           AND ($4::float8 IS NULL OR price <= $4::numeric)
@@ -83,7 +84,8 @@ async fn list_products(
     let total: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*) FROM products
-        WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
+        WHERE deleted_at IS NULL
+          AND ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
           AND ($2::text IS NULL OR category = $2)
           AND ($3::float8 IS NULL OR price >= $3::numeric)
           AND ($4::float8 IS NULL OR price <= $4::numeric)
@@ -140,9 +142,9 @@ async fn get_product(
     let product: Product = sqlx::query_as(
         r#"
         SELECT id, name, description, price, category, image_url,
-               stock, created_at, updated_at
+               stock, created_at, updated_at, deleted_at
         FROM products
-        WHERE id = $1
+        WHERE id = $1 AND deleted_at IS NULL
         "#,
     )
     .bind(id)
@@ -197,7 +199,7 @@ async fn create_product(
                               image_url, stock, created_at, updated_at)
         VALUES ($1, $2, $3, $4::numeric, $5, $6, $7, $8, $9)
         RETURNING id, name, description, price, category, image_url,
-                  stock, created_at, updated_at
+                  stock, created_at, updated_at, deleted_at
         "#,
     )
     .bind(id)
@@ -248,9 +250,9 @@ async fn update_product(
             image_url   = COALESCE($5, image_url),
             stock       = COALESCE($6, stock),
             updated_at  = $7
-        WHERE id = $8
+        WHERE id = $8 AND deleted_at IS NULL
         RETURNING id, name, description, price, category, image_url,
-                  stock, created_at, updated_at
+                  stock, created_at, updated_at, deleted_at
         "#,
     )
     .bind(payload.name.as_ref())
@@ -273,7 +275,7 @@ async fn update_product(
     Ok(Json(product))
 }
 
-/// `DELETE /products/{id}` — delete a product (admin only).
+/// `DELETE /products/{id}` — soft-delete a product (admin only).
 async fn delete_product(
     State(state): State<AppState>,
     user: AuthUser,
@@ -286,7 +288,7 @@ async fn delete_product(
         ));
     }
 
-    let result = sqlx::query("DELETE FROM products WHERE id = $1")
+    let result = sqlx::query("UPDATE products SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
         .bind(id)
         .execute(&state.db)
         .await?;

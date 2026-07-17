@@ -91,6 +91,7 @@ fn ProductManagement() -> impl IntoView {
     let price = RwSignal::new(String::new());
     let category = RwSignal::new(String::new());
     let image_url = RwSignal::new(String::new());
+    let stock = RwSignal::new(String::new());
     let editing_id = RwSignal::new(None::<String>);
     let form_msg = RwSignal::new(String::new());
 
@@ -126,13 +127,15 @@ fn ProductManagement() -> impl IntoView {
             "price": p,
             "category": category.get(),
             "image_url": image_url.get(),
+            "stock": stock.get().parse::<i32>().unwrap_or(0),
         });
 
         let is_new = id.is_none();
         let path = match &id {
-            Some(id) => format!("/api/products/{}", id),
+            Some(id) => format!("/api/products/{:}", id),
             None => "/api/products".to_string(),
         };
+        let toast = toast.clone();
 
         leptos::task::spawn_local(async move {
             let result = if is_new {
@@ -145,6 +148,7 @@ fn ProductManagement() -> impl IntoView {
                     let msg = if is_new { "Produto criado com sucesso!" } else { "Produto atualizado com sucesso!" };
                     form_msg.set(msg.to_string());
                     toast.success(msg);
+                    stock.set(String::new());
                     name.set(String::new());
                     description.set(String::new());
                     price.set(String::new());
@@ -164,7 +168,11 @@ fn ProductManagement() -> impl IntoView {
     let edit_product = move |product: Value| {
         name.set(product["name"].as_str().unwrap_or("").to_string());
         description.set(product["description"].as_str().unwrap_or("").to_string());
-        price.set(product["price"].as_f64().unwrap_or(0.0).to_string());
+        price.set(product["price"].as_str()
+            .and_then(|s| s.parse::<f64>().ok())
+            .or_else(|| product["price"].as_f64())
+            .unwrap_or(0.0).to_string());
+        stock.set(product["stock"].as_i64().unwrap_or(0).to_string());
         category.set(product["category"].as_str().unwrap_or("").to_string());
         image_url.set(product["image_url"].as_str().unwrap_or("").to_string());
         editing_id.set(
@@ -199,6 +207,7 @@ fn ProductManagement() -> impl IntoView {
     };
 
     let cancel_edit = move |_| {
+        stock.set(String::new());
         name.set(String::new());
         description.set(String::new());
         price.set(String::new());
@@ -264,6 +273,13 @@ fn ProductManagement() -> impl IntoView {
                         prop:value=image_url
                         on:input=move |ev| image_url.set(event_target_value(&ev))
                     />
+                    <input
+                        type="number"
+                        placeholder="Estoque"
+                        class="form-input full-width"
+                        prop:value=stock
+                        on:input=move |ev| stock.set(event_target_value(&ev))
+                    />
                 </div>
 
                 <div style="display: flex; gap: 0.5rem;">
@@ -290,7 +306,7 @@ fn ProductManagement() -> impl IntoView {
                             }.into_any()
                         }
                         Ok(data) => {
-                            let items = data["data"]
+                            let items = data["products"]
                                 .as_array()
                                 .or_else(|| data.as_array())
                                 .cloned()
@@ -310,6 +326,7 @@ fn ProductManagement() -> impl IntoView {
                                                 <tr>
                                                     <th>Nome</th>
                                                     <th>Preço</th>
+                                                    <th>Estoque</th>
                                                     <th>Categoria</th>
                                                     <th>Ações</th>
                                                 </tr>
@@ -326,7 +343,11 @@ fn ProductManagement() -> impl IntoView {
                                                             .as_str()
                                                             .unwrap_or("")
                                                             .to_string();
-                                                        let p_price = p["price"].as_f64().unwrap_or(0.0);
+                                                        let p_price = p["price"].as_str()
+                                                            .and_then(|s| s.parse::<f64>().ok())
+                                                            .or_else(|| p["price"].as_f64())
+                                                            .unwrap_or(0.0);
+                                                        let p_stock = p["stock"].as_i64().unwrap_or(0);
                                                         let p_cat = p["category"]
                                                             .as_str()
                                                             .unwrap_or("")
@@ -336,6 +357,7 @@ fn ProductManagement() -> impl IntoView {
                                                             <tr>
                                                                 <td style="font-weight: 500;">{p_name}</td>
                                                                 <td>{format!("R$ {:.2}", p_price)}</td>
+                                                                <td>{p_stock}</td>
                                                                 <td>
                                                                     <span class="badge badge-info">{p_cat}</span>
                                                                 </td>
@@ -378,33 +400,13 @@ fn ProductManagement() -> impl IntoView {
 #[component]
 fn OrderManagement() -> impl IntoView {
     let orders = LocalResource::new(|| async move {
-        api::api_get("/api/admin/orders").await
+        api::api_get("/api/orders/all").await
     });
-
-    let update_status = move |order_id: &str, new_status: &str| {
-        let id = order_id.to_string();
-        let status = new_status.to_string();
-        let toast = crate::toast::use_toast();
-        leptos::task::spawn_local(async move {
-            let result = api::api_put(
-                &format!("/api/admin/orders/{}", id),
-                &serde_json::json!({ "status": status }),
-            ).await;
-            match result {
-                Ok(_) => {
-                    toast.success("Status do pedido atualizado!");
-                    orders.refetch();
-                }
-                Err(e) => {
-                    toast.error(format!("Erro ao atualizar status: {}", e));
-                }
-            }
-        });
-    };
 
     fn status_badge_class(status: &str) -> &'static str {
         match status {
             "pending" => "badge badge-warning",
+            "paid" => "badge badge-success",
             "confirmed" => "badge badge-info",
             "shipped" => "badge badge-info",
             "delivered" => "badge badge-success",
@@ -416,6 +418,7 @@ fn OrderManagement() -> impl IntoView {
     fn status_label(status: &str) -> &'static str {
         match status {
             "pending" => "Pendente",
+            "paid" => "Pago",
             "confirmed" => "Confirmado",
             "shipped" => "Enviado",
             "delivered" => "Entregue",
@@ -438,9 +441,8 @@ fn OrderManagement() -> impl IntoView {
                             }.into_any()
                         }
                         Ok(data) => {
-                            let items = data["data"]
+                            let items = data
                                 .as_array()
-                                .or_else(|| data.as_array())
                                 .cloned()
                                 .unwrap_or_default();
                             if items.is_empty() {
@@ -475,8 +477,9 @@ fn OrderManagement() -> impl IntoView {
                                                             .as_str()
                                                             .unwrap_or("unknown")
                                                             .to_string();
-                                                        let order_total = order["total"]
-                                                            .as_f64()
+                                                        let order_total = order["total"].as_str()
+                                                            .and_then(|s| s.parse::<f64>().ok())
+                                                            .or_else(|| order["total"].as_f64())
                                                             .unwrap_or(0.0);
                                                         let badge_class = status_badge_class(&current_status);
                                                         let label = status_label(&current_status);
@@ -497,7 +500,23 @@ fn OrderManagement() -> impl IntoView {
                                                                         style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;"
                                                                         on:change=move |ev| {
                                                                             let val = event_target_value(&ev);
-                                                                            update_status(&oid, &val);
+                                                                            let id = oid.clone();
+                                                                            let status = val;
+                                                                            let orders2 = orders.clone();
+                                                                            leptos::task::spawn_local(async move {
+                                                                                let result = api::api_put(
+                                                                                    &format!("/api/orders/{}/status", id),
+                                                                                    &serde_json::json!({ "status": status }),
+                                                                                ).await;
+                                                                                match result {
+                                                                                    Ok(_) => {
+                                                                                        orders2.refetch();
+                                                                                    }
+                                                                                    Err(e) => {
+                                                                                        web_sys::console::error_1(&format!("Erro ao atualizar status: {}", e).into());
+                                                                                    }
+                                                                                }
+                                                                            });
                                                                         }
                                                                     >
                                                                         <option value="pending" selected=current_status=="pending">Pendente</option>
@@ -540,11 +559,11 @@ fn CouponManagement() -> impl IntoView {
     let expires_at = RwSignal::new(String::new());
     let editing_id = RwSignal::new(None::<String>);
     let form_msg = RwSignal::new(String::new());
+    let toast = crate::toast::use_toast();
 
     let submit_coupon = move |_| {
         let id = editing_id.get();
         form_msg.set(String::new());
-        let toast = crate::toast::use_toast();
 
         let code_val = code.get();
         if code_val.trim().is_empty() {
@@ -569,17 +588,18 @@ fn CouponManagement() -> impl IntoView {
 
         let body = serde_json::json!({
             "code": code.get(),
-            "discount": disc,
-            "kind": kind.get(),
+            "discount_value": disc,
+            "discount_type": kind.get(),
             "max_uses": max_uses.get().parse::<i64>().unwrap_or(0),
             "expires_at": expires_at.get(),
         });
 
         let is_new = id.is_none();
         let path = match &id {
-            Some(id) => format!("/api/coupons/{}", id),
+            Some(id) => format!("/api/coupons/{:}", id),
             None => "/api/coupons".to_string(),
         };
+        let toast = toast.clone();
 
         leptos::task::spawn_local(async move {
             let result = if is_new {
@@ -610,8 +630,8 @@ fn CouponManagement() -> impl IntoView {
 
     let edit_coupon = move |coupon: Value| {
         code.set(coupon["code"].as_str().unwrap_or("").to_string());
-        discount.set(coupon["discount"].as_f64().unwrap_or(0.0).to_string());
-        kind.set(coupon["kind"].as_str().unwrap_or("percentage").to_string());
+        discount.set(coupon["discount_value"].as_f64().unwrap_or(0.0).to_string());
+        kind.set(coupon["discount_type"].as_str().unwrap_or("percentage").to_string());
         max_uses.set(coupon["max_uses"].as_i64().unwrap_or(0).to_string());
         expires_at.set(coupon["expires_at"].as_str().unwrap_or("").to_string());
         editing_id.set(
@@ -738,9 +758,8 @@ fn CouponManagement() -> impl IntoView {
                             }.into_any()
                         }
                         Ok(data) => {
-                            let items = data["data"]
+                            let items = data
                                 .as_array()
-                                .or_else(|| data.as_array())
                                 .cloned()
                                 .unwrap_or_default();
                             if items.is_empty() {
@@ -774,8 +793,8 @@ fn CouponManagement() -> impl IntoView {
                                                             .as_str()
                                                             .unwrap_or("")
                                                             .to_string();
-                                                        let c_discount = c["discount"].as_f64().unwrap_or(0.0);
-                                                        let c_kind = c["kind"].as_str().unwrap_or("").to_string();
+                                                        let c_discount = c["discount_value"].as_f64().unwrap_or(0.0);
+                                                        let c_kind = c["discount_type"].as_str().unwrap_or("").to_string();
                                                         let kind_label = if c_kind == "percentage" { "%" } else { "R$" };
                                                         let c_clone = c.clone();
                                                         view! {

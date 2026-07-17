@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, State},
+    http::HeaderMap,
     routing::{get, post, put},
     Json, Router,
 };
@@ -19,6 +20,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/checkout", post(checkout))
         .route("/orders", get(list_orders))
+        .route("/orders/all", get(list_all_orders))
         .route("/orders/{id}", get(get_order))
         .route("/orders/{id}/cancel", put(cancel_order))
         .route("/orders/{id}/status", put(update_order_status))
@@ -47,8 +49,31 @@ fn from_cents(cents: i64) -> f64 {
 async fn checkout(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<CheckoutRequest>,
 ) -> AppResult<Json<OrderResponse>> {
+    // ── Idempotency check ────────────────────────────────────────────
+    let idempotency_key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    if let Some(ref key) = idempotency_key {
+        let existing: Option<(i32, String)> = sqlx::query_as(
+            "SELECT response_status, response_body FROM idempotency_keys WHERE key = $1",
+        )
+        .bind(key)
+        .fetch_optional(&state.db)
+        .await?;
+
+        if let Some((_status, body)) = existing {
+            let response: OrderResponse = serde_json::from_str(&body)
+                .map_err(|_| AppError::Internal("Failed to deserialize cached response".into()))?;
+            return Ok(Json(response));
+        }
+    }
+
     // 1. Get cart items with product details
     let rows = sqlx::query(
         r#"
@@ -162,7 +187,7 @@ async fn checkout(
     // We lock each product individually via SELECT FOR UPDATE
     for (_ci_id, pid, _pname, _pimg, _price_bd, qty, _subtotal_f) in &cart_items {
         let product: Product = sqlx::query_as::<_, Product>(
-            "SELECT * FROM products WHERE id = $1 FOR UPDATE",
+            "SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
         )
         .bind(pid)
         .fetch_one(&mut *tx)
@@ -276,7 +301,7 @@ async fn checkout(
         })
         .collect();
 
-    Ok(Json(OrderResponse {
+    let response = OrderResponse {
         id: order_id,
         status: "paid".into(),
         total,
@@ -284,7 +309,26 @@ async fn checkout(
         final_total,
         items: order_items,
         created_at: chrono::Utc::now(),
-    }))
+    };
+
+    // 13. Store idempotency key if provided
+    if let Some(ref key) = idempotency_key {
+        let body = serde_json::to_string(&response)
+            .map_err(|_| AppError::Internal("Failed to serialize response".into()))?;
+        let _ = sqlx::query(
+            r#"
+            INSERT INTO idempotency_keys (key, response_status, response_body)
+            VALUES ($1, 200, $2)
+            ON CONFLICT (key) DO NOTHING
+            "#,
+        )
+        .bind(key)
+        .bind(&body)
+        .execute(&state.db)
+        .await;
+    }
+
+    Ok(Json(response))
 }
 
 // ── List orders ─────────────────────────────────────────────────────────
@@ -534,4 +578,60 @@ async fn update_order_status(
         .await?;
 
     Ok(Json(json!({ "message": format!("Status atualizado para '{}'", new_status), "order_id": id })))
+}
+
+/// `GET /api/orders/all` — list all orders (admin only)
+#[utoipa::path(
+    get,
+    path = "/api/orders/all",
+    responses(
+        (status = 200, description = "Lista de todos os pedidos", body = Vec<OrderResponse>),
+        (status = 403, description = "Apenas administradores"),
+    ),
+    tag = "checkout"
+)]
+async fn list_all_orders(
+    AuthUser(user): AuthUser,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<OrderResponse>>> {
+    if user.role != "admin" {
+        return Err(AppError::Forbidden("Apenas administradores podem ver todos os pedidos".into()));
+    }
+
+    let orders = sqlx::query_as::<_, Order>(
+        "SELECT * FROM orders ORDER BY created_at DESC",
+    )
+    .fetch_all(&state.db)
+    .await?;
+
+    let mut responses = Vec::new();
+    for order in orders {
+        let items = sqlx::query_as::<_, OrderItem>(
+            "SELECT * FROM order_items WHERE order_id = $1",
+        )
+        .bind(order.id)
+        .fetch_all(&state.db)
+        .await?;
+
+        responses.push(OrderResponse {
+            id: order.id,
+            status: order.status,
+            total: order.total.to_string().parse().unwrap_or(0.0),
+            discount: order.discount.to_string().parse().unwrap_or(0.0),
+            final_total: order.final_total.to_string().parse().unwrap_or(0.0),
+            items: items
+                .into_iter()
+                .map(|oi| OrderItemResponse {
+                    product_id: oi.product_id,
+                    product_name: oi.product_name,
+                    quantity: oi.quantity,
+                    unit_price: oi.unit_price.to_string().parse().unwrap_or(0.0),
+                    subtotal: oi.subtotal.to_string().parse().unwrap_or(0.0),
+                })
+                .collect(),
+            created_at: order.created_at,
+        });
+    }
+
+    Ok(Json(responses))
 }

@@ -39,6 +39,7 @@ bigdecimal = { version = "0.4", features = ["serde"] }
 # Observability
 tracing.workspace = true
 tracing-subscriber.workspace = true
+axum-prometheus = "0.8"
 
 # Rate limiting
 tower_governor = "0.1"

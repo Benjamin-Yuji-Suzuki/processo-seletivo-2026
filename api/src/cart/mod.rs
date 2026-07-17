@@ -115,14 +115,14 @@ async fn add_to_cart(
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
     // 1. Verify product exists and snapshot current stock.
-    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1")
+    // 1. Verify product exists and snapshot current stock.
+    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
         .bind(payload.product_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| AppError::NotFound("Product not found".into()))?;
 
     // 2. Read the quantity already in the cart (0 if not present).
-    //    CAST(... AS INTEGER) ensures we get i32, not BIGINT from SUM().
     let current_qty: i32 = sqlx::query_scalar(
         "SELECT COALESCE(CAST(SUM(quantity) AS INTEGER), 0) FROM cart_items \
          WHERE user_id = $1 AND product_id = $2",
@@ -230,7 +230,7 @@ async fn update_cart_item(
     }
 
     // --- Non-zero quantity → validate stock and update ---------------------
-    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1")
+    let available: i32 = sqlx::query_scalar("SELECT stock FROM products WHERE id = $1 AND deleted_at IS NULL")
         .bind(product_id)
         .fetch_optional(&state.db)
         .await?

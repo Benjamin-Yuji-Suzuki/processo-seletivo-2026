@@ -4,6 +4,7 @@ pub mod catalog;
 pub mod checkout;
 pub mod coupons;
 pub mod error;
+pub mod health;
 pub mod models;
 pub mod state;
 
@@ -30,6 +31,7 @@ use utoipa::OpenApi;
         crate::cart::clear_cart,
         crate::checkout::checkout,
         crate::checkout::list_orders,
+        crate::checkout::list_all_orders,
         crate::checkout::get_order,
         crate::checkout::cancel_order,
         crate::checkout::update_order_status,

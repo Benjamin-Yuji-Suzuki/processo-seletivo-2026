@@ -7,6 +7,9 @@ target/
 # ── Trunk / WASM build ──────────────────
 frontend/dist/
 
+# ── Logs ──────────────────────────────────
+logs/
+
 # ── Environment / Secrets ───────────────
 .env
 

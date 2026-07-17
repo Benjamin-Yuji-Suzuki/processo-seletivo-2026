@@ -104,6 +104,8 @@ pub fn ProductCard(product: Value) -> impl IntoView {
         }
     };  
     let qty_display = move || qty.get().to_string();
+    let dec_disabled = move || qty.get() <= 1;
+    let inc_disabled = move || qty.get() >= 10;
 
     let handle_add = move |pid: String| {
         // Check if user is logged in
@@ -167,13 +169,13 @@ pub fn ProductCard(product: Value) -> impl IntoView {
                         view! {
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                                 <div class="qty-selector">
-                                    <button class="qty-btn" on:click=dec_qty disabled=move || qty.get() <= 1>
+                                    <button class="qty-btn" on:click=dec_qty disabled=dec_disabled>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="5" y1="12" x2="19" y2="12"/>
                                         </svg>
                                     </button>
                                     <span class="qty-value">{qty_display}</span>
-                                    <button class="qty-btn" on:click=inc_qty disabled=move || qty.get() >= 10>
+                                    <button class="qty-btn" on:click=inc_qty disabled=inc_disabled>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="12" y1="5" x2="12" y2="19"/>
                                             <line x1="5" y1="12" x2="19" y2="12"/>

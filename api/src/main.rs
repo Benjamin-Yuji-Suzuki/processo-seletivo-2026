@@ -1,7 +1,10 @@
 use std::net::SocketAddr;
 
 use axum::Router;
+use axum::routing::get;
+use axum_prometheus::PrometheusMetricLayer;
 use sqlx::postgres::PgPoolOptions;
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -13,6 +16,7 @@ use lapes_ecommerce_api::cart;
 use lapes_ecommerce_api::catalog;
 use lapes_ecommerce_api::checkout;
 use lapes_ecommerce_api::coupons;
+use lapes_ecommerce_api::health;
 use lapes_ecommerce_api::state::AppState;
 use lapes_ecommerce_api::ApiDoc;
 
@@ -74,14 +78,26 @@ async fn main() {
     };
 
     // Build router
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+    let metrics_handle = Arc::new(metric_handle);
+
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/api/health", get(health::health_check))
+        .route("/api/metrics", get({
+            let mh = metrics_handle.clone();
+            move || {
+                let mh = mh.clone();
+                async move { mh.render() }
+            }
+        }))
         .nest("/api/auth", auth::routes())
         .nest("/api", catalog::routes())
         .nest("/api", cart::routes())
         .nest("/api", checkout::routes())
         .nest("/api", coupons::routes())
         .layer(TraceLayer::new_for_http())
+        .layer(prometheus_layer)
         .layer(CorsLayer::permissive())
         .with_state(state);
 

@@ -9,11 +9,10 @@ pub fn CartPage() -> impl IntoView {
     let checkout_loading = RwSignal::new(false);
     let removing_id = RwSignal::new(None::<String>);
 
-    let perform_checkout = move |_| {
+    let _perform_checkout = move |_ev: leptos::ev::MouseEvent| {
         let code = coupon.get();
         checkout_msg.set(String::new());
         checkout_loading.set(true);
-        let toast = crate::toast::use_toast();
         leptos::task::spawn_local(async move {
             let mut body = serde_json::json!({});
             if !code.is_empty() {
@@ -25,13 +24,11 @@ pub fn CartPage() -> impl IntoView {
                         .as_str()
                         .unwrap_or("Pedido realizado com sucesso!");
                     checkout_msg.set(msg.to_string());
-                    toast.success("Pedido realizado com sucesso!");
                     coupon.set(String::new());
                     cart.refetch();
                 }
                 Err(e) => {
                     checkout_msg.set(format!("Erro: {}", e));
-                    toast.error(format!("Erro no checkout: {}", e));
                 }
             }
             checkout_loading.set(false);
@@ -42,7 +39,7 @@ pub fn CartPage() -> impl IntoView {
         let id = item_id.to_string();
         removing_id.set(Some(id.clone()));
         leptos::task::spawn_local(async move {
-            let _ = api::api_delete(&format!("/api/cart/{}", id)).await;
+            let _ = api::api_delete(&format!("/api/cart/{:}", id)).await;
             removing_id.set(None);
             cart.refetch();
         });
@@ -52,7 +49,7 @@ pub fn CartPage() -> impl IntoView {
         let id = item_id.to_string();
         leptos::task::spawn_local(async move {
             let _ = api::api_put(
-                &format!("/api/cart/{}", id),
+                &format!("/api/cart/{:}", id),
                 &serde_json::json!({ "quantity": qty }),
             ).await;
             cart.refetch();
@@ -92,7 +89,7 @@ pub fn CartPage() -> impl IntoView {
                                     }.into_any()
                                 }
                                 Ok(data) => {
-                                    let items = data["data"]
+                                    let items = data["items"]
                                         .as_array()
                                         .or_else(|| data.as_array())
                                         .cloned()
@@ -116,12 +113,17 @@ pub fn CartPage() -> impl IntoView {
                                             .iter()
                                             .filter_map(|item| {
                                                 let qty = item["quantity"].as_i64().unwrap_or(0);
-                                                let price = item["product"]["price"]
+                                                let price = item["unit_price"]
                                                     .as_f64()
                                                     .unwrap_or(0.0);
                                                 Some(qty as f64 * price)
                                             })
                                             .sum();
+
+                                        let checkout_loading2 = checkout_loading;
+                                        let coupon2 = coupon;
+                                        let checkout_msg2 = checkout_msg;
+                                        let cart2 = cart;
 
                                         view! {
                                             <div style="margin-top: 1rem;">
@@ -132,15 +134,14 @@ pub fn CartPage() -> impl IntoView {
                                                             .as_str()
                                                             .unwrap_or("")
                                                             .to_string();
-                                                        let product_name = item["product"]
-                                                            ["name"]
+                                                        let product_name = item["product_name"]
                                                             .as_str()
                                                             .unwrap_or("Produto")
                                                             .to_string();
                                                         let qty = item["quantity"]
                                                             .as_i64()
                                                             .unwrap_or(1);
-                                                        let price = item["product"]["price"]
+                                                        let price = item["unit_price"]
                                                             .as_f64()
                                                             .unwrap_or(0.0);
                                                         let subtotal = qty as f64 * price;
@@ -209,17 +210,41 @@ pub fn CartPage() -> impl IntoView {
                                                         placeholder="Cupom de desconto"
                                                         class="form-input"
                                                         on:input=move |ev| {
-                                                            coupon.set(event_target_value(&ev));
+                                                            coupon2.set(event_target_value(&ev));
                                                         }
-                                                        prop:value=coupon
+                                                        prop:value=coupon2
                                                     />
                                                     <button
                                                         class="btn btn-success btn-lg"
-                                                        disabled=move || checkout_loading.get()
-                                                        on:click=perform_checkout
+                                                        disabled=move || checkout_loading2.get()
+                                                        on:click=move |_| {
+                                                            let code = coupon2.get();
+                                                            checkout_msg2.set(String::new());
+                                                            checkout_loading2.set(true);
+                                                            leptos::task::spawn_local(async move {
+                                                                let mut body = serde_json::json!({});
+                                                                if !code.is_empty() {
+                                                                    body["coupon_code"] = serde_json::json!(code);
+                                                                }
+                                                                match api::api_post("/api/checkout", &body).await {
+                                                                    Ok(resp) => {
+                                                                        let msg = resp["message"]
+                                                                            .as_str()
+                                                                            .unwrap_or("Pedido realizado com sucesso!");
+                                                                        checkout_msg2.set(msg.to_string());
+                                                                        coupon2.set(String::new());
+                                                                        cart2.refetch();
+                                                                    }
+                                                                    Err(e) => {
+                                                                        checkout_msg2.set(format!("Erro: {}", e));
+                                                                    }
+                                                                }
+                                                                checkout_loading2.set(false);
+                                                            });
+                                                        }
                                                     >
                                                         {move || {
-                                                            if checkout_loading.get() {
+                                                            if checkout_loading2.get() {
                                                                 "Finalizando..."
                                                             } else {
                                                                 "Finalizar Pedido"
@@ -228,14 +253,14 @@ pub fn CartPage() -> impl IntoView {
                                                     </button>
                                                 </div>
 
-                                                {if checkout_msg.get().is_empty() {
+                                                {if checkout_msg2.get().is_empty() {
                                                     None
                                                 } else {
-                                                    let is_err = checkout_msg.get().starts_with("Erro");
+                                                    let is_err = checkout_msg2.get().starts_with("Erro");
                                                     Some(
                                                         view! {
                                                             <div class=if is_err { "alert alert-error" } else { "alert alert-success" } style="margin-top: 1rem;">
-                                                                <span>{move || checkout_msg.get()}</span>
+                                                                <span>{move || checkout_msg2.get()}</span>
                                                             </div>
                                                         },
                                                     )

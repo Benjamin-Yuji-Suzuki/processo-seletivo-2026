@@ -12,9 +12,7 @@
 
 ## Por que Rust?
 
-Porque sim.
-
-Mas já que você perguntou: Rust oferece segurança de memória sem garbage collector, tipagem forte que elimina classes inteiras de bugs em tempo de compilação, e performance próxima de C. Para um sistema de e-commerce onde consistência de dados e controle de concorrência são requisitos explícitos, o compilador do Rust atua como um primeiro revisor de código — se compilou, grande parte dos erros de lógica concorrente já foram eliminados. A máquina de estados do pedido (`PENDING → PAID → SHIPPED → DELIVERED`) é modelada como um enum Rust, tornando transições inválidas literalmente impossíveis de compilar. O controle de overselling no checkout usa transações atômicas no PostgreSQL combinadas com as garantias do type system do Rust. Não é sobre performance — é sobre corretude.
+Rust oferece segurança de memória sem garbage collector, tipagem forte que elimina classes inteiras de bugs em tempo de compilação, e performance próxima de C. Para um sistema de e-commerce onde consistência de dados e controle de concorrência são requisitos explícitos, o compilador do Rust atua como um primeiro revisor de código — se compilou, grande parte dos erros de lógica concorrente já foram eliminados. A máquina de estados do pedido (`PENDING → PAID → SHIPPED → DELIVERED`) é modelada como um enum Rust, tornando transições inválidas literalmente impossíveis de compilar. O controle de overselling no checkout usa transações atômicas no PostgreSQL combinadas com as garantias do type system do Rust.
 
 ---
 
@@ -24,46 +22,40 @@ Mas já que você perguntou: Rust oferece segurança de memória sem garbage col
 
 | Crate | Função |
 |---|---|
-| `axum` | Framework web async, construído sobre Tokio. Roteamento, middleware, WebSocket. |
+| `axum` | Framework web async, construído sobre Tokio. Roteamento, middleware. |
 | `tokio` | Runtime assíncrono. Base de toda a stack de I/O. |
 | `sqlx` | Queries SQL async para PostgreSQL com verificação em tempo de compilação. Migrations embutidas. |
 | `redis` + `deadpool-redis` | Cache de produtos com invalidação. Pool de conexões async. |
 | `jsonwebtoken` | Emissão e validação de JWT para autenticação. |
 | `argon2` | Hash de senhas. Algoritmo moderno e seguro. |
-| `tower_governor` | Rate limiting nos endpoints públicos (login, registro, catálogo). |
-| `tracing` + `tracing-subscriber` | Logs estruturados em JSON com timestamp, método, rota, status e duração. |
-| `utoipa` + `utoipa-swagger-ui` | Geração automática de documentação OpenAPI/Swagger via macros `#[derive]`. |
+| `tower-http` | Middleware CORS e tracing para requisições HTTP. |
+| `tracing` + `tracing-subscriber` | Logs estruturados em JSON. |
 | `serde` + `serde_json` | Serialização e deserialização de JSON. |
 | `validator` | Validação de inputs nas bordas da API. |
 | `reqwest` | Cliente HTTP para integração com gateway de pagamento. |
 | `uuid` | Geração de UUIDs para identificadores de entidades. |
-| `chrono` | Manipulação de datas e timestamps (validade de cupons, etc). |
+| `chrono` | Manipulação de datas e timestamps. |
 
-**Banco de dados:** PostgreSQL
-**Cache:** Redis
-**Migrations:** `sqlx migrate` (versionadas em `/migrations/*.sql`)
+**Banco de dados:** PostgreSQL 16
+**Cache:** Redis 7
+**Migrations:** `sqlx migrate` (versionadas em `migrations/*.sql`)
 
 ### Frontend
 
 | Ferramenta | Função |
 |---|---|
-| `Leptos` | Framework web full-stack em Rust compilado para WebAssembly. SSR + hidratação no cliente. |
-| `cargo-leptos` | CLI de desenvolvimento do Leptos. Hot reload, build otimizado. |
-| `Trunk` | Bundler WASM para Rust. Empacota o frontend para produção. |
-| `TailwindCSS` | Estilização via classes utilitárias, declaradas dentro das macros Rust. |
+| `Leptos 0.7` | Framework web Rust compilado para WebAssembly. Modo CSR (Client-Side Rendering). |
+| `Trunk` | Bundler WASM para Rust. Empacota e serve o frontend. |
+| `TailwindCSS` | Estilização via classes utilitárias. |
 
-Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a macro `view!` do Leptos, que compila para WebAssembly. Não há JavaScript ou TypeScript no projeto.
+Frontend 100% em Rust (`.rs`) usando a macro `view!` do Leptos compilado para WebAssembly. Sem JavaScript ou TypeScript.
 
 ### Infraestrutura
 
 | Ferramenta | Função |
 |---|---|
-| `Docker` + `Docker Compose` | Orquestra localmente API, frontend, PostgreSQL e Redis. |
-| `GitHub Actions` | Pipeline de CI/CD: build, testes, lint (`clippy`) e formatação (`rustfmt`) a cada push/PR. |
-| `cargo-tarpaulin` | Geração de relatório de cobertura de código em formato LCOV. |
-| `Codecov` | Visualização e histórico de cobertura de testes. Integrado ao CI via GitHub Actions. |
-| `SonarCloud` | Análise estática de qualidade de código: code smells, duplicações, vulnerabilidades. |
-| `Fly.io` | Deploy em produção. CD automático via GitHub Actions no merge para `main`. |
+| `Docker` + `Docker Compose` | Orquestra API, PostgreSQL e Redis. |
+| `GitHub Actions` | Pipeline de CI: build, testes, lint (`clippy`). |
 
 ---
 
@@ -72,9 +64,9 @@ Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a mac
 ```
 ┌─────────────────────────────────────────────────────┐
 │                     Cliente                          │
-│              Leptos (Rust → WASM)                   │
+│              Leptos CSR (Rust → WASM)               │
 └──────────────────────┬──────────────────────────────┘
-                       │ HTTP / REST
+                       │ HTTP / REST (JSON)
 ┌──────────────────────▼──────────────────────────────┐
 │                  Axum (Backend)                      │
 │  Auth │ Catálogo │ Carrinho │ Checkout │ Cupons      │
@@ -90,11 +82,12 @@ Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a mac
 
 ## Domínios Implementados
 
-- **Autenticação & Usuários** — Registro, login, JWT, roles `admin` e `customer`, proteção de rotas por papel.
+- **Autenticação & Usuários** — Registro, login, JWT, roles `admin` e `customer`, proteção de rotas.
 - **Catálogo de Produtos** — CRUD completo, busca com filtros (categoria, preço, nome), paginação, cache Redis com invalidação.
 - **Carrinho de Compras** — Carrinho persistido por usuário, validação de estoque ao adicionar e no checkout.
 - **Checkout & Pedidos** — Reserva atômica de estoque (sem overselling), máquina de estados, cancelamento com devolução de estoque, integração com gateway de pagamento.
 - **Cupons de Desconto** — Percentual ou valor fixo, validade por data, uso único por usuário, valor mínimo de pedido.
+- **Health Check** — Endpoint de saúde para monitoramento.
 
 ---
 
@@ -102,47 +95,50 @@ Todo o código do frontend é escrito em Rust puro (arquivos `.rs`) usando a mac
 
 ### Pré-requisitos
 
-- [Rust](https://rustup.rs/) (stable)
+- [Rust](https://rustup.rs/) (edition 2024, stable)
 - [Docker](https://www.docker.com/) e Docker Compose
-- [cargo-leptos](https://github.com/leptos-rs/cargo-leptos): `cargo install cargo-leptos`
 - [Trunk](https://trunkrs.dev/): `cargo install trunk`
 
-### Setup local
+### Desenvolvimento local (recomendado)
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/benjaminYuji/lapes-ecommerce
-cd lapes-ecommerce
+# Clone o repositório
+git clone https://github.com/Benjamin-Yuji-Suzuki/processo-seletivo-2026.git
+cd processo-seletivo-2026
 
-# 2. Suba PostgreSQL e Redis
-docker compose up -d db redis
-
-# 3. Configure as variáveis de ambiente
-cp .env.example .env
-# edite o .env com suas configurações
-
-# 4. Rode as migrations e popule o banco
-cargo run --bin migrate
-cargo run --bin seed
-
-# 5. Suba o backend
-cargo run --bin api
-
-# 6. Suba o frontend (em outro terminal)
-cargo leptos watch
+# Rode o script de dev (sobe PostgreSQL, Redis, API e Frontend)
+./dev.sh
 ```
 
-A API estará disponível em `http://localhost:8099`
-O frontend estará disponível em `http://localhost:3001`
-A documentação Swagger em `http://localhost:8099/docs`
+**Portas:**
+- API: `http://localhost:8099`
+- Frontend: `http://localhost:8081`
+- Swagger: `http://localhost:8099/swagger-ui/`
 
-### Rodar tudo com Docker (recomendado)
+### Docker (produção)
 
 ```bash
 docker compose up --build
 ```
 
-Isso sobe API + frontend + PostgreSQL + Redis de uma vez. Migrations e seed rodam automaticamente.
+A API sobe com PostgreSQL e Redis. O frontend (Trunk/WASM) roda separadamente.
+
+### Setup manual passo a passo
+
+```bash
+# 1. Suba PostgreSQL e Redis
+docker compose up -d postgres redis
+
+# 2. Configure o .env
+cp .env.example .env
+
+# 3. Rode a API
+cargo run --bin api
+
+# 4. Em outro terminal, suba o frontend
+cd frontend
+trunk serve --port 8081
+```
 
 ---
 
@@ -163,41 +159,49 @@ Os testes cobrem os fluxos críticos: checkout completo, concorrência de estoqu
 
 ---
 
-## Qualidade de Código
+## Estrutura do Repositório
 
-O projeto utiliza **Codecov** para rastreamento de cobertura de testes e **SonarCloud** para análise estática de qualidade. Ambos rodam automaticamente no pipeline de CI a cada push.
-
-```bash
-# Gerar relatório de cobertura localmente
-cargo install cargo-tarpaulin
-cargo tarpaulin --out Lcov --output-dir coverage/
 ```
-
-O relatório gerado em `coverage/lcov.info` é o mesmo enviado ao Codecov e ao SonarCloud no CI.
-
----
-
-## Variáveis de Ambiente
-
-```env
-DATABASE_URL=postgres://postgres:password@localhost:5432/ecommerce
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=sua_chave_secreta_aqui
-JWT_EXPIRES_IN=24h
-PAYMENT_GATEWAY_URL=https://...
-PAYMENT_GATEWAY_KEY=...
-RUST_LOG=info
+.
+├── api/                      # Backend Axum
+│   ├── src/
+│   │   ├── auth/             # Autenticação e autorização
+│   │   ├── catalog/          # Catálogo de produtos
+│   │   ├── cart/             # Carrinho de compras
+│   │   ├── checkout/         # Checkout e pedidos
+│   │   ├── coupons/          # Cupons de desconto
+│   │   ├── health.rs         # Health check endpoint
+│   │   ├── lib.rs            # Módulos e app router
+│   │   ├── main.rs           # Entrypoint
+│   │   ├── models.rs         # Modelos de domínio
+│   │   ├── error.rs          # Tratamento de erros
+│   │   └── state.rs          # Estado compartilhado (AppState)
+│   └── Cargo.toml
+├── frontend/                 # Frontend Leptos CSR
+│   ├── src/
+│   │   ├── components/       # Componentes reutilizáveis
+│   │   ├── pages/            # Páginas (admin, cart, etc.)
+│   │   └── lib.rs
+│   └── Cargo.toml
+├── migrations/               # SQLx migrations
+├── tests/                    # Testes de integração
+├── .github/workflows/        # CI/CD GitHub Actions
+├── dev.sh                    # Script de desenvolvimento
+├── docker-compose.yml        # Orquestração local
+├── Dockerfile                # Build multi-stage da API
+├── Cargo.toml                # Workspace raiz
+└── README.md
 ```
 
 ---
 
 ## Decisões Técnicas
 
-**Por que Axum e não Actix-web?** Axum é construído sobre Tower, o que torna middleware composável e reutilizável. A integração com Leptos (SSR) também é nativa no ecossistema Axum + Tokio.
+**Por que Axum e não Actix-web?** Axum é construído sobre Tower, o que torna middleware composável e reutilizável. A integração com o ecossistema Tokio é nativa.
 
-**Por que SQLx e não Diesel ou SeaORM?** SQLx valida as queries SQL em tempo de compilação sem precisar de um ORM completo. Isso mantém o SQL legível e explícito, o que facilita otimizações e é mais fácil de auditar.
+**Por que SQLx e não Diesel ou SeaORM?** SQLx valida as queries SQL em tempo de compilação sem precisar de um ORM completo. Mantém o SQL legível e explícito, facilitando otimizações e auditoria.
 
-**Por que Leptos e não Yew ou Dioxus?** Leptos oferece o menor overhead de runtime, fine-grained reactivity sem Virtual DOM, e integração nativa com Axum para SSR. É o framework Rust frontend com melhor performance em benchmarks independentes (2025/2026).
+**Por que Leptos CSR e não SSR?** O frontend foi implementado em modo Client-Side Rendering com Trunk como bundler, simplificando o deploy e eliminando a necessidade de um servidor Node ou de SSR em produção. A comunicação com a API é via REST puro.
 
 **Controle de concorrência:** O overselling é prevenido com `SELECT ... FOR UPDATE` dentro de uma transação PostgreSQL. Duas requisições simultâneas para o último item resultam em uma transação esperando a outra terminar — a segunda recebe erro de estoque insuficiente.
 
@@ -205,27 +209,16 @@ RUST_LOG=info
 
 ---
 
-## Estrutura do Repositório
+## Variáveis de Ambiente
 
-```
-.
-├── api/                  # Backend Axum
-│   ├── src/
-│   │   ├── auth/
-│   │   ├── catalog/
-│   │   ├── cart/
-│   │   ├── checkout/
-│   │   └── coupons/
-│   └── Cargo.toml
-├── frontend/             # Frontend Leptos
-│   ├── src/
-│   └── Cargo.toml
-├── migrations/           # SQLx migrations
-├── seeds/                # Scripts de seed
-├── .github/workflows/    # CI/CD GitHub Actions
-├── docker-compose.yml
-├── .env.example
-└── README.md
+```env
+DATABASE_URL=postgres://ben:1234@localhost:5432/lapes_ecommerce
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=sua_chave_secreta_aqui
+JWT_EXPIRES_IN=24h
+PAYMENT_GATEWAY_URL=https://api.sandbox.gateway.com/
+PAYMENT_GATEWAY_KEY=chave_do_gateway
+RUST_LOG=lapes_ecommerce_api=info,tower_http=info
 ```
 
 ---

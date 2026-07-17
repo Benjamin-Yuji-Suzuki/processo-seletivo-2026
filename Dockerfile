@@ -18,5 +18,5 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/lapes-ecommerce-api /usr/local/bin/
 COPY --from=builder /app/migrations /app/migrations
-EXPOSE 3000
+EXPOSE 8099
 CMD ["lapes-ecommerce-api"]

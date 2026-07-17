@@ -209,6 +209,5 @@ Os testes cobrem os fluxos críticos: checkout completo, concorrência de estoqu
 
 ---
 
----
 
 *Desafio LAPES 2026 — Benjamin Yuji Suzuki*
